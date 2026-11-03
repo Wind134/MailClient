@@ -1,0 +1,86 @@
+# 推送形如 v1.0.14 的标签时：构建自包含 exe 安装包 + 便携版 zip，跑单元测试，并创建 GitHub Release。
+# 也可以在 Actions 页面手动运行（workflow_dispatch）：只构建并上传产物，不创建 Release。
+name: release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      # NuGet.config 里有一个仅本机使用、不入库的 local-nuget 离线源；CI 上建个空目录让还原跳过它，其余走 nuget.org。
+      - name: Prepare NuGet sources
+        shell: pwsh
+        run: New-Item -ItemType Directory -Force local-nuget | Out-Null
+
+      - name: Check tag matches version
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: |
+          [xml]$p = Get-Content Directory.Build.props -Raw -Encoding UTF8
+          $v = [version]$p.SelectSingleNode('//MailClientVersion').InnerText.Trim()
+          $expected = if ($v.Revision -eq 0) { $v.ToString(3) } else { $v.ToString() }
+          $tag = '${{ github.ref_name }}'.TrimStart('v')
+          if ($tag -ne $expected) { throw "标签 v$tag 与 Directory.Build.props 里的版本 $expected 不一致，请先改版本号再打标签。" }
+          "VERSION=$expected" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      # 与 scripts/run-full-unit-tests.ps1 相同：排除需要真实账号的 Live* 联调测试。
+      - name: Unit tests
+        shell: pwsh
+        run: ./scripts/run-full-unit-tests.ps1
+
+      - name: Build installer and portable zip
+        shell: pwsh
+        run: ./scripts/build-installer.ps1 -SkipTests
+
+      # 应用内「检查更新」依赖这两样：发布说明（Release 正文，更新对话框里显示）和 SHA256SUMS.txt（下载后校验安装包）。
+      # 缺任何一样都直接让流水线失败，而不是发布一个半成品 Release。
+      - name: Verify update metadata (SHA256SUMS.txt + release notes)
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: |
+          $notes = Get-ChildItem docs -Filter "release-$($env:VERSION)*.md" -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $notes) { throw "缺少发布说明 docs/release-$($env:VERSION)*.md（它会成为 Release 正文，应用内更新对话框会显示它）。" }
+          $sums = 'artifacts/release/SHA256SUMS.txt'
+          if (-not (Test-Path $sums)) { throw 'artifacts/release/SHA256SUMS.txt 不存在。' }
+          $lines = Get-Content $sums | Where-Object { $_.Trim() }
+          $installer = Get-ChildItem artifacts/release -File -Filter 'MailClient-Setup-*.exe' | Select-Object -First 1
+          if (-not $installer) { throw '缺少 MailClient-Setup-*.exe。' }
+          foreach ($f in Get-ChildItem artifacts/release -File | Where-Object { $_.Name -ne 'SHA256SUMS.txt' }) {
+            $want = (Get-FileHash $f.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            if (-not ($lines | Where-Object { $_ -match "^$want\s+\*?$([regex]::Escape($f.Name))$" })) { throw "SHA256SUMS.txt 里没有 $($f.Name) 的正确条目。" }
+          }
+          Write-Host "SHA256SUMS.txt OK；发布说明：$($notes.Name)"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MailClient-release
+          path: artifacts/release/*
+          if-no-files-found: error
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $notes = Get-ChildItem docs -Filter "release-$($env:VERSION)*.md" -ErrorAction SilentlyContinue | Select-Object -First 1
+          $ghArgs = @('release', 'create', '${{ github.ref_name }}', '--title', "邮件 $($env:VERSION)", '--verify-tag')
+          $files = Get-ChildItem artifacts/release -File | ForEach-Object { $_.FullName }
+          if ($notes) { $ghArgs += @('--notes-file', $notes.FullName) } else { $ghArgs += '--generate-notes' }
+          # $files 包含 artifacts/release 下的全部文件，其中就有 SHA256SUMS.txt（应用内更新用它校验安装包）。
+          gh @ghArgs @files
+          if ($LASTEXITCODE -ne 0) { throw 'gh release create 失败' }

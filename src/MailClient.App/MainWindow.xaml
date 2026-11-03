@@ -1,0 +1,702 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Window
+    x:Class="MailClient_App.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:MailClient_App.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="using:MailClient_App"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="using:MailClient.ViewModels"
+    Title="邮件"
+    mc:Ignorable="d">
+
+    <Window.SystemBackdrop>
+        <MicaBackdrop />
+    </Window.SystemBackdrop>
+
+    <Grid>
+        <Grid.Resources>
+            <!--  邮件行：未读圆点 / 头像 / 发件人 + 时间 / 主题 + 附件 + 旗标 / 预览  -->
+            <DataTemplate x:Key="MessageRowTemplate" x:DataType="vm:MessageRowViewModel">
+                <Grid Padding="0,10,0,10" ColumnSpacing="8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="10" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Ellipse
+                        Width="8"
+                        Height="8"
+                        Margin="0,16,0,0"
+                        VerticalAlignment="Top"
+                        Fill="{ThemeResource AccentFillColorDefaultBrush}"
+                        Visibility="{x:Bind IsUnread, Mode=OneWay}" />
+                    <PersonPicture
+                        Grid.Column="1"
+                        Width="40"
+                        Height="40"
+                        VerticalAlignment="Top"
+                        Initials="{x:Bind Initials}" />
+                    <StackPanel Grid.Column="2" Spacing="2">
+                        <Grid ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock
+                                controls:HighlightText.Value="{x:Bind SenderHl}"
+                                FontWeight="{x:Bind local:Converters.Bold(IsUnread), Mode=OneWay}"
+                                TextTrimming="CharacterEllipsis" />
+                            <Border
+                                Grid.Column="1"
+                                Padding="6,1,6,2"
+                                VerticalAlignment="Center"
+                                Background="{ThemeResource AccentFillColorSecondaryBrush}"
+                                CornerRadius="4"
+                                Visibility="{x:Bind IsLocalDraft}">
+                                <TextBlock
+                                    FontSize="11"
+                                    Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
+                                    Text="本地草稿" />
+                            </Border>
+                            <TextBlock
+                                Grid.Column="2"
+                                VerticalAlignment="Center"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Style="{StaticResource CaptionTextBlockStyle}"
+                                Text="{x:Bind TimeText}" />
+                        </Grid>
+                        <Grid ColumnSpacing="6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock
+                                controls:HighlightText.Value="{x:Bind SubjectHl}"
+                                FontWeight="{x:Bind local:Converters.Bold(IsUnread), Mode=OneWay}"
+                                TextTrimming="CharacterEllipsis" />
+                            <FontIcon
+                                Grid.Column="1"
+                                FontSize="12"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Glyph="&#xE723;"
+                                Visibility="{x:Bind HasAttachments}" />
+                            <FontIcon
+                                Grid.Column="2"
+                                FontSize="12"
+                                Foreground="{ThemeResource SystemFillColorCautionBrush}"
+                                Glyph="&#xE7C1;"
+                                Visibility="{x:Bind IsFlagged, Mode=OneWay}" />
+                        </Grid>
+                        <TextBlock
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            MaxLines="2"
+                            controls:HighlightText.Value="{x:Bind PreviewHl, Mode=OneWay}"
+                            Style="{StaticResource CaptionTextBlockStyle}"
+                            TextTrimming="CharacterEllipsis"
+                            TextWrapping="Wrap" />
+                    </StackPanel>
+                </Grid>
+            </DataTemplate>
+
+            <DataTemplate x:Key="OutboxRowTemplate" x:DataType="vm:OutboxItemViewModel">
+                <Grid Padding="0,10,0,10" ColumnSpacing="10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <FontIcon
+                        Margin="2,2,0,0"
+                        VerticalAlignment="Top"
+                        FontSize="18"
+                        Glyph="{x:Bind Glyph}" />
+                    <StackPanel Grid.Column="1" Spacing="3">
+                        <Grid ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock
+                                FontWeight="SemiBold"
+                                Text="{x:Bind Subject}"
+                                TextTrimming="CharacterEllipsis" />
+                            <TextBlock
+                                Grid.Column="1"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Style="{StaticResource CaptionTextBlockStyle}"
+                                Text="{x:Bind TimeText}" />
+                        </Grid>
+                        <TextBlock
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Style="{StaticResource CaptionTextBlockStyle}"
+                            Text="{x:Bind RecipientsLine}"
+                            TextTrimming="CharacterEllipsis" />
+                        <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Text="{x:Bind StatusText}" />
+                        <TextBlock
+                            Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                            Style="{StaticResource CaptionTextBlockStyle}"
+                            Text="{x:Bind ErrorText}"
+                            TextWrapping="Wrap"
+                            Visibility="{x:Bind HasError}" />
+                        <StackPanel Orientation="Horizontal" Spacing="4">
+                            <HyperlinkButton
+                                Padding="0,2"
+                                AutomationProperties.Name="重试发送"
+                                Click="OutboxRetry_Click"
+                                Content="重试"
+                                IsEnabled="{x:Bind CanRetry}"
+                                Tag="{x:Bind Id}" />
+                            <HyperlinkButton
+                                Padding="8,2"
+                                AutomationProperties.Name="删除发件箱邮件"
+                                Click="OutboxDelete_Click"
+                                Content="删除"
+                                IsEnabled="{x:Bind CanDelete}"
+                                Tag="{x:Bind Id}" />
+                        </StackPanel>
+                    </StackPanel>
+                </Grid>
+            </DataTemplate>
+
+            <DataTemplate x:Key="AttachmentTemplate" x:DataType="vm:AttachmentItemViewModel">
+                <Button
+                    Padding="10,6"
+                    Command="{x:Bind DownloadCommand}"
+                    CommandParameter="{x:Bind}"
+                    Background="{ThemeResource ControlFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="6"
+                    ToolTipService.ToolTip="下载附件">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <FontIcon FontSize="16" Glyph="{x:Bind Glyph}" />
+                        <StackPanel>
+                            <TextBlock Text="{x:Bind FileName}" />
+                            <TextBlock
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Style="{StaticResource CaptionTextBlockStyle}"
+                                Text="{x:Bind SizeText}" />
+                        </StackPanel>
+                    </StackPanel>
+                </Button>
+            </DataTemplate>
+        </Grid.Resources>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="48" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <TitleBar
+            x:Name="AppTitleBar"
+            Title="邮件"
+            IsPaneToggleButtonVisible="True"
+            PaneToggleRequested="TitleBar_PaneToggleRequested" />
+
+        <!--  左栏：账号 / 文件夹。Auto 模式随窗口宽度在 展开 / 紧凑 / 最小化 之间自动切换。  -->
+        <NavigationView
+            x:Name="NavView"
+            Grid.Row="1"
+            CompactModeThresholdWidth="760"
+            ExpandedModeThresholdWidth="900"
+            IsBackButtonVisible="Collapsed"
+            IsPaneToggleButtonVisible="False"
+            IsSettingsVisible="False"
+            OpenPaneLength="240"
+            PaneDisplayMode="Auto"
+            SelectionChanged="NavView_SelectionChanged">
+
+            <NavigationView.PaneHeader>
+                <Button
+                    Margin="12,4,12,8"
+                    HorizontalAlignment="Stretch"
+                    Command="{x:Bind ViewModel.NewMessageCommand}"
+                    Style="{StaticResource AccentButtonStyle}">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <FontIcon FontSize="14" Glyph="&#xE70F;" />
+                        <TextBlock Text="新邮件" />
+                    </StackPanel>
+                </Button>
+            </NavigationView.PaneHeader>
+
+            <NavigationView.PaneFooter>
+                <StackPanel Margin="12,4,12,12" Spacing="8">
+                    <!--  同步进度（后台首次同步 / 手动刷新）  -->
+                    <StackPanel Spacing="4" Visibility="{x:Bind ViewModel.IsSyncing, Mode=OneWay}">
+                        <ProgressBar
+                            IsIndeterminate="{x:Bind ViewModel.IsSyncIndeterminate, Mode=OneWay}"
+                            Maximum="100"
+                            Value="{x:Bind ViewModel.SyncProgressValue, Mode=OneWay}" />
+                        <TextBlock
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Style="{StaticResource CaptionTextBlockStyle}"
+                            Text="{x:Bind ViewModel.SyncStatusText, Mode=OneWay}"
+                            TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+                    <TextBlock
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Style="{StaticResource CaptionTextBlockStyle}"
+                        Text="{x:Bind ViewModel.SyncStatusText, Mode=OneWay}"
+                        TextTrimming="CharacterEllipsis"
+                        Visibility="{x:Bind local:Converters.VisibleIfNotEmpty(ViewModel.SyncStatusText), Mode=OneWay}" />
+
+                    <Button
+                        x:Name="AddAccountButton"
+                        HorizontalAlignment="Stretch"
+                        AutomationProperties.Name="添加账号"
+                        Click="AddAccountButton_Click"
+                        IsEnabled="{x:Bind ViewModel.CanAddAccount}">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon FontSize="14" Glyph="&#xE8FA;" />
+                            <TextBlock Text="添加账号" />
+                        </StackPanel>
+                    </Button>
+                    <Button
+                        x:Name="SettingsButton"
+                        HorizontalAlignment="Stretch"
+                        AutomationProperties.AutomationId="SettingsButton"
+                        AutomationProperties.Name="设置"
+                        Click="SettingsButton_Click">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon FontSize="14" Glyph="&#xE713;" />
+                            <TextBlock Text="设置" />
+                        </StackPanel>
+                    </Button>
+                    <HyperlinkButton
+                        x:Name="ClearDemoButton"
+                        Padding="0"
+                        Click="ClearDemoButton_Click"
+                        Content="清除演示数据"
+                        Visibility="{x:Bind ViewModel.ShowClearDemo, Mode=OneWay}" />
+                </StackPanel>
+            </NavigationView.PaneFooter>
+
+            <Grid x:Name="ContentGrid" Padding="0,0,12,12" SizeChanged="ContentGrid_SizeChanged">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition x:Name="ListColumn" Width="380" MinWidth="280" MaxWidth="620" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition x:Name="ReadColumn" Width="*" MinWidth="360" />
+                </Grid.ColumnDefinitions>
+
+                <!--  ───────── 中栏：分类标签 + 搜索 + 邮件列表 ─────────  -->
+                <Border
+                    x:Name="ListPane"
+                    Grid.Column="0"
+                    Background="{ThemeResource LayerFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8">
+                    <Grid RowSpacing="4">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+
+                        <Grid Margin="16,14,8,0" ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock
+                                    x:Name="ListTitleText"
+                                    Style="{StaticResource SubtitleTextBlockStyle}"
+                                    Text="{x:Bind ViewModel.List.Title, Mode=OneWay}"
+                                    TextTrimming="CharacterEllipsis" />
+                                <TextBlock
+                                    x:Name="ListSubtitleText"
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="{x:Bind ViewModel.List.Subtitle, Mode=OneWay}" />
+                            </StackPanel>
+                            <Button
+                                Grid.Column="1"
+                                VerticalAlignment="Center"
+                                Command="{x:Bind ViewModel.RefreshCommand}"
+                                Style="{StaticResource SubtleButtonStyle}"
+                                ToolTipService.ToolTip="刷新">
+                                <FontIcon FontSize="14" Glyph="&#xE72C;" />
+                            </Button>
+                        </Grid>
+
+                        <Grid
+                            Grid.Row="1"
+                            Margin="12,6,12,0"
+                            ColumnSpacing="6"
+                            Visibility="{x:Bind ViewModel.IsMessageListMode, Mode=OneWay}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <AutoSuggestBox
+                                x:Name="SearchBox"
+                                AutomationProperties.Name="搜索邮件"
+                                GotFocus="SearchBox_GotFocus"
+                                KeyDown="SearchBox_KeyDown"
+                                PlaceholderText="搜索邮件（Ctrl+F）"
+                                QueryIcon="Find"
+                                QuerySubmitted="SearchBox_QuerySubmitted"
+                                SuggestionChosen="SearchBox_SuggestionChosen"
+                                TextChanged="SearchBox_TextChanged">
+                                <ToolTipService.ToolTip>
+                                    <TextBlock LineHeight="20" TextWrapping="Wrap">
+                                        <Run Text="搜索已同步到本地的邮件" /><LineBreak />
+                                        <Run Text="from:张三  to:me@x.com  subject:报价" /><LineBreak />
+                                        <Run Text="has:attachment  is:unread  is:flagged" /><LineBreak />
+                                        <Run Text="after:2026-10-01  before:2026-11-01" /><LineBreak />
+                                        <Run Text="&quot;精确短语&quot;；多个条件用空格组合（AND）" />
+                                    </TextBlock>
+                                </ToolTipService.ToolTip>
+                            </AutoSuggestBox>
+                            <ComboBox
+                                x:Name="ScopeBox"
+                                Grid.Column="1"
+                                MinWidth="108"
+                                AutomationProperties.Name="搜索范围"
+                                ItemsSource="{x:Bind vm:MessageListViewModel.ScopeNames}"
+                                SelectedIndex="{x:Bind ViewModel.List.SearchScopeIndex, Mode=TwoWay}" />
+                        </Grid>
+
+                        <SelectorBar
+                            x:Name="CategoryBar"
+                            Grid.Row="2"
+                            Margin="8,2,8,0"
+                            SelectionChanged="CategoryBar_SelectionChanged"
+                            Visibility="{x:Bind ViewModel.List.ShowCategoryBar, Mode=OneWay}">
+                            <SelectorBarItem x:Name="TabPrimary" IsSelected="True" Text="主要">
+                                <SelectorBarItem.Icon>
+                                    <FontIcon Glyph="&#xE77B;" />
+                                </SelectorBarItem.Icon>
+                            </SelectorBarItem>
+                            <SelectorBarItem x:Name="TabTransactions" Text="交易">
+                                <SelectorBarItem.Icon>
+                                    <FontIcon Glyph="&#xE719;" />
+                                </SelectorBarItem.Icon>
+                            </SelectorBarItem>
+                            <SelectorBarItem x:Name="TabUpdates" Text="更新">
+                                <SelectorBarItem.Icon>
+                                    <FontIcon Glyph="&#xEA8F;" />
+                                </SelectorBarItem.Icon>
+                            </SelectorBarItem>
+                            <SelectorBarItem x:Name="TabPromotions" Text="促销">
+                                <SelectorBarItem.Icon>
+                                    <FontIcon Glyph="&#xE8EC;" />
+                                </SelectorBarItem.Icon>
+                            </SelectorBarItem>
+                        </SelectorBar>
+
+                        <Grid Grid.Row="3">
+                            <ListView
+                                x:Name="MessageListView"
+                                Margin="4,4,4,4"
+                                ItemTemplate="{StaticResource MessageRowTemplate}"
+                                ContextRequested="MessageListView_ContextRequested"
+                                DoubleTapped="MessageListView_DoubleTapped"
+                                KeyDown="MessageListView_KeyDown"
+                                SelectionChanged="MessageListView_SelectionChanged"
+                                SelectionMode="Single"
+                                Visibility="{x:Bind ViewModel.IsMessageListMode, Mode=OneWay}">
+                                <ListView.ItemContainerStyle>
+                                    <Style BasedOn="{StaticResource DefaultListViewItemStyle}" TargetType="ListViewItem">
+                                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                        <Setter Property="Padding" Value="8,0,10,0" />
+                                        <Setter Property="MinHeight" Value="0" />
+                                    </Style>
+                                </ListView.ItemContainerStyle>
+                            </ListView>
+                            <ListView
+                                x:Name="OutboxListView"
+                                Margin="4,4,4,4"
+                                ItemTemplate="{StaticResource OutboxRowTemplate}"
+                                ItemsSource="{x:Bind ViewModel.Outbox.Items}"
+                                SelectionMode="None"
+                                Visibility="{x:Bind ViewModel.IsOutboxMode, Mode=OneWay}">
+                                <ListView.ItemContainerStyle>
+                                    <Style BasedOn="{StaticResource DefaultListViewItemStyle}" TargetType="ListViewItem">
+                                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                        <Setter Property="Padding" Value="8,0,10,0" />
+                                        <Setter Property="MinHeight" Value="0" />
+                                    </Style>
+                                </ListView.ItemContainerStyle>
+                            </ListView>
+                            <StackPanel
+                                x:Name="OutboxEmptyPanel"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                Spacing="8"
+                                Visibility="Collapsed">
+                                <FontIcon
+                                    FontSize="36"
+                                    Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                    Glyph="&#xE724;" />
+                                <TextBlock
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Text="发件箱是空的" />
+                            </StackPanel>
+                            <StackPanel
+                                x:Name="ListEmptyPanel"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                Spacing="8"
+                                Visibility="Collapsed">
+                                <FontIcon
+                                    FontSize="36"
+                                    Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                    Glyph="&#xE715;" />
+                                <TextBlock
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Text="{x:Bind ViewModel.List.EmptyMessage, Mode=OneWay}" />
+                            </StackPanel>
+                        </Grid>
+                    </Grid>
+                </Border>
+
+                <controls:ColumnSplitter x:Name="Splitter" Grid.Column="1" />
+
+                <!--  ───────── 右栏：阅读窗格 ─────────  -->
+                <Border
+                    x:Name="ReadPane"
+                    Grid.Column="2"
+                    Background="{ThemeResource LayerFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8">
+                    <Grid>
+                        <StackPanel
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            Spacing="10"
+                            Visibility="{x:Bind ViewModel.Reading.IsEmpty, Mode=OneWay}">
+                            <FontIcon
+                                FontSize="48"
+                                Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                Glyph="&#xE715;" />
+                            <TextBlock
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Text="选择一封邮件以阅读" />
+                        </StackPanel>
+
+                        <Grid x:Name="ReadContent" Visibility="{x:Bind ViewModel.Reading.HasMessage, Mode=OneWay}">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <CommandBar
+                                Background="Transparent"
+                                DefaultLabelPosition="Right"
+                                IsOpen="False">
+                                <CommandBar.Content>
+                                    <Button
+                                        x:Name="BackButton"
+                                        Margin="8,4,0,0"
+                                        Click="BackButton_Click"
+                                        Style="{StaticResource SubtleButtonStyle}"
+                                        Visibility="Collapsed">
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <FontIcon FontSize="14" Glyph="&#xE72B;" />
+                                            <TextBlock Text="返回列表" />
+                                        </StackPanel>
+                                    </Button>
+                                </CommandBar.Content>
+                                <AppBarButton
+                                    AutomationProperties.AutomationId="EditDraftButton"
+                                    Command="{x:Bind ViewModel.Reading.EditDraftCommand}"
+                                    Label="继续编辑"
+                                    Visibility="{x:Bind ViewModel.Reading.IsDraft, Mode=OneWay}">
+                                    <AppBarButton.Icon>
+                                        <FontIcon Glyph="&#xE70F;" />
+                                    </AppBarButton.Icon>
+                                </AppBarButton>
+                                <AppBarButton
+                                    Command="{x:Bind ViewModel.Reading.ReplyCommand}"
+                                    Label="回复"
+                                    Visibility="{x:Bind ViewModel.Reading.IsNotDraft, Mode=OneWay}">
+                                    <AppBarButton.Icon>
+                                        <FontIcon Glyph="&#xE8CA;" />
+                                    </AppBarButton.Icon>
+                                </AppBarButton>
+                                <AppBarButton
+                                    Command="{x:Bind ViewModel.Reading.ReplyAllCommand}"
+                                    Label="全部回复"
+                                    Visibility="{x:Bind ViewModel.Reading.IsNotDraft, Mode=OneWay}">
+                                    <AppBarButton.Icon>
+                                        <FontIcon Glyph="&#xE8C2;" />
+                                    </AppBarButton.Icon>
+                                </AppBarButton>
+                                <AppBarButton
+                                    Command="{x:Bind ViewModel.Reading.ForwardCommand}"
+                                    Label="转发"
+                                    Visibility="{x:Bind ViewModel.Reading.IsNotDraft, Mode=OneWay}">
+                                    <AppBarButton.Icon>
+                                        <FontIcon Glyph="&#xE89C;" />
+                                    </AppBarButton.Icon>
+                                </AppBarButton>
+                                <AppBarSeparator />
+                                <AppBarButton
+                                    Command="{x:Bind ViewModel.Reading.ArchiveCommand}"
+                                    Label="归档"
+                                    Visibility="{x:Bind ViewModel.Reading.IsNotDraft, Mode=OneWay}">
+                                    <AppBarButton.Icon>
+                                        <FontIcon Glyph="&#xE8B7;" />
+                                    </AppBarButton.Icon>
+                                </AppBarButton>
+                                <AppBarButton Command="{x:Bind ViewModel.Reading.DeleteCommand}" Label="删除">
+                                    <AppBarButton.Icon>
+                                        <FontIcon Glyph="&#xE74D;" />
+                                    </AppBarButton.Icon>
+                                </AppBarButton>
+                                <AppBarButton
+                                    Command="{x:Bind ViewModel.Reading.ToggleFlagCommand}"
+                                    Label="{x:Bind ViewModel.Reading.FlagLabel, Mode=OneWay}"
+                                    Visibility="{x:Bind ViewModel.Reading.IsNotDraft, Mode=OneWay}">
+                                    <AppBarButton.Icon>
+                                        <FontIcon Glyph="&#xE7C1;" />
+                                    </AppBarButton.Icon>
+                                </AppBarButton>
+                                <CommandBar.SecondaryCommands>
+                                    <AppBarButton Command="{x:Bind ViewModel.Reading.MarkUnreadCommand}" Label="标记为未读">
+                                        <AppBarButton.Icon>
+                                            <FontIcon Glyph="&#xE715;" />
+                                        </AppBarButton.Icon>
+                                    </AppBarButton>
+                                </CommandBar.SecondaryCommands>
+                            </CommandBar>
+
+                            <!--  头部：主题 + 发件人信息  -->
+                            <Grid
+                                Grid.Row="1"
+                                Margin="24,8,24,12"
+                                RowSpacing="12">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+                                <TextBlock
+                                    IsTextSelectionEnabled="True"
+                                    Style="{StaticResource TitleTextBlockStyle}"
+                                    Text="{x:Bind ViewModel.Reading.Subject, Mode=OneWay}"
+                                    TextWrapping="Wrap" />
+                                <Grid Grid.Row="1" ColumnSpacing="12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <PersonPicture
+                                        Width="44"
+                                        Height="44"
+                                        VerticalAlignment="Top"
+                                        Initials="{x:Bind ViewModel.Reading.Initials, Mode=OneWay}" />
+                                    <StackPanel Grid.Column="1" Spacing="2">
+                                        <TextBlock IsTextSelectionEnabled="True">
+                                            <Run FontWeight="SemiBold" Text="{x:Bind ViewModel.Reading.FromName, Mode=OneWay}" />
+                                            <Run
+                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                Text="  " />
+                                            <Run
+                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                Text="{x:Bind ViewModel.Reading.FromAddress, Mode=OneWay}" />
+                                        </TextBlock>
+                                        <TextBlock
+                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                            Style="{StaticResource CaptionTextBlockStyle}"
+                                            TextTrimming="CharacterEllipsis">
+                                            <Run Text="收件人：" /><Run Text="{x:Bind ViewModel.Reading.ToText, Mode=OneWay}" />
+                                        </TextBlock>
+                                        <TextBlock
+                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                            Style="{StaticResource CaptionTextBlockStyle}"
+                                            TextTrimming="CharacterEllipsis"
+                                            Visibility="{x:Bind local:Converters.VisibleIfNotEmpty(ViewModel.Reading.CcText), Mode=OneWay}">
+                                            <Run Text="抄送：" /><Run Text="{x:Bind ViewModel.Reading.CcText, Mode=OneWay}" />
+                                        </TextBlock>
+                                    </StackPanel>
+                                    <TextBlock
+                                        Grid.Column="2"
+                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                        Style="{StaticResource CaptionTextBlockStyle}"
+                                        Text="{x:Bind ViewModel.Reading.DateText, Mode=OneWay}" />
+                                </Grid>
+                            </Grid>
+
+                            <!--  附件条  -->
+                            <ScrollViewer
+                                Grid.Row="2"
+                                Margin="24,0,24,8"
+                                HorizontalScrollBarVisibility="Auto"
+                                HorizontalScrollMode="Enabled"
+                                VerticalScrollMode="Disabled"
+                                Visibility="{x:Bind ViewModel.Reading.HasAttachments, Mode=OneWay}">
+                                <ItemsControl ItemTemplate="{StaticResource AttachmentTemplate}" ItemsSource="{x:Bind ViewModel.Reading.Attachments}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <StackPanel Orientation="Horizontal" Spacing="8" />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                </ItemsControl>
+                            </ScrollViewer>
+
+                            <!--  正文：HTML 用 WebView2，没有 HTML 或 WebView2 不可用时回退到纯文本  -->
+                            <Grid Grid.Row="3">
+                                <Rectangle
+                                    Height="1"
+                                    VerticalAlignment="Top"
+                                    Fill="{ThemeResource DividerStrokeColorDefaultBrush}" />
+                                <WebView2 x:Name="BodyWebView" Margin="0,1,0,0" Visibility="Collapsed" />
+                                <ScrollViewer x:Name="PlainBodyScroll" Margin="0,1,0,0">
+                                    <TextBlock
+                                        Margin="24,16,24,24"
+                                        controls:HighlightText.Value="{x:Bind ViewModel.Reading.BodyHighlight, Mode=OneWay}"
+                                        IsTextSelectionEnabled="True"
+                                        TextWrapping="Wrap" />
+                                </ScrollViewer>
+                                <StackPanel
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    Spacing="12"
+                                    Visibility="{x:Bind ViewModel.Reading.IsBodyLoading, Mode=OneWay}">
+                                    <ProgressRing
+                                        Width="40"
+                                        Height="40"
+                                        IsActive="{x:Bind ViewModel.Reading.IsBodyLoading, Mode=OneWay}" />
+                                    <TextBlock
+                                        HorizontalAlignment="Center"
+                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                        Text="正在加载完整正文…" />
+                                </StackPanel>
+                                <InfoBar
+                                    Margin="24,16,24,0"
+                                    VerticalAlignment="Top"
+                                    Title="正文未完整加载"
+                                    IsClosable="False"
+                                    IsOpen="{x:Bind ViewModel.Reading.HasBodyLoadError, Mode=OneWay}"
+                                    Message="{x:Bind ViewModel.Reading.BodyLoadError, Mode=OneWay}"
+                                    Severity="Warning">
+                                    <InfoBar.ActionButton>
+                                        <Button Command="{x:Bind ViewModel.Reading.RetryLoadBodyCommand}" Content="重试" />
+                                    </InfoBar.ActionButton>
+                                </InfoBar>
+                            </Grid>
+                        </Grid>
+                    </Grid>
+                </Border>
+
+                <InfoBar
+                    Grid.ColumnSpan="3"
+                    Margin="0,0,0,16"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Bottom"
+                    IsOpen="{x:Bind ViewModel.IsStatusOpen, Mode=TwoWay}"
+                    Message="{x:Bind ViewModel.StatusMessage, Mode=OneWay}"
+                    Severity="{x:Bind local:Converters.StatusSeverity(ViewModel.IsStatusError), Mode=OneWay}" />
+            </Grid>
+        </NavigationView>
+    </Grid>
+</Window>

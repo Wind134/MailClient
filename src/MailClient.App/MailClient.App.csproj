@@ -1,0 +1,117 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows10.0.26100.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+    <RootNamespace>MailClient.App</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon Condition="Exists('Assets\AppIcon.ico')">Assets\AppIcon.ico</ApplicationIcon>
+    <Platforms>x86;x64;ARM64</Platforms>
+    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">win-$([System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture.ToString().ToLowerInvariant())</RuntimeIdentifier>
+    <PublishProfile Condition="Exists('Properties\PublishProfiles\win-$(Platform).pubxml')">win-$(Platform).pubxml</PublishProfile>
+    <UseWinUI>true</UseWinUI>
+    <WinUISDKReferences>false</WinUISDKReferences>
+    <EnableMsixTooling>true</EnableMsixTooling>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyTitle>邮件</AssemblyTitle>
+    <Description>邮件客户端</Description>
+    <!-- 自定义 Program.Main：单实例（托盘后台时再次启动会激活已有进程） -->
+    <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="Assets\SplashScreen.scale-200.png" />
+    <Content Include="Assets\LockScreenLogo.scale-200.png" />
+    <Content Include="Assets\Square150x150Logo.scale-200.png" />
+    <Content Include="Assets\Square44x44Logo.scale-200.png" />
+    <Content Include="Assets\Square44x44Logo.targetsize-24_altform-unplated.png" />
+    <Content Include="Assets\Square44x44Logo.targetsize-48_altform-lightunplated.png" />
+    <Content Include="Assets\StoreLogo.png" />
+    <Content Include="Assets\AppIcon.ico" />
+    <Content Include="Assets\Wide310x150Logo.scale-200.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Manifest Include="$(ApplicationManifest)" />
+  </ItemGroup>
+
+  <!--
+    Defining the "Msix" ProjectCapability here allows the Single-project MSIX Packaging
+    Tools extension to be activated for this project even if the Windows App SDK Nuget
+    package has not yet been restored.
+  -->
+  <ItemGroup Condition="'$(DisableMsixProjectCapabilityAddedByProject)'!='true' and '$(EnableMsixTooling)'=='true'">
+    <ProjectCapability Include="Msix"/>
+  </ItemGroup>
+
+  <!--
+    Microsoft.Windows.SDK.BuildTools.WinApp adds first-class support for
+    `dotnet run` on packaged WinUI apps: it hooks the .NET CLI Run target to
+    register a debug identity via the winapp CLI and launch the app with
+    package identity (AUMID).
+    Set <EnableWinAppRunSupport>false</EnableWinAppRunSupport> in a
+    <PropertyGroup> above to opt out.
+  -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.4654" />
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.3.1" />
+    <PackageReference Include="System.Drawing.Common" Version="8.0.10" />
+</ItemGroup>
+
+  <!--
+    Defining the "HasPackageAndPublishMenuAddedByProject" property here allows the Solution
+    Explorer "Package and Publish" context menu entry to be enabled for this project even if
+    the Windows App SDK Nuget package has not yet been restored.
+  -->
+  <PropertyGroup Condition="'$(DisableHasPackageAndPublishMenuAddedByProject)'!='true' and '$(EnableMsixTooling)'=='true'">
+    <HasPackageAndPublishMenu>true</HasPackageAndPublishMenu>
+  </PropertyGroup>
+
+  <!-- Publish Properties -->
+  <PropertyGroup>
+    <PublishReadyToRun Condition="'$(Configuration)' == 'Debug'">False</PublishReadyToRun>
+    <PublishReadyToRun Condition="'$(Configuration)' != 'Debug'">True</PublishReadyToRun>
+    <!--
+      Graph(Kiota) / MSAL / MailKit 与部分 STJ 反射序列化在 PublishTrimmed 下会直接抛
+      "Reflection-based serialization has been disabled"（1.0.8 Release 包已复现：正文加载失败、同步失败，严重时闪退）。
+      在依赖方 trim-safe 之前，打包一律关闭裁剪；本地 DTO 仍使用 JsonSerializerContext 源生成。
+    -->
+    <PublishTrimmed>false</PublishTrimmed>
+    <JsonSerializerIsReflectionEnabledByDefault>true</JsonSerializerIsReflectionEnabledByDefault>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\MailClient.ViewModels\MailClient.ViewModels.csproj" />
+    <ProjectReference Include="..\MailClient.Core\MailClient.Core.csproj" />
+    <ProjectReference Include="..\MailClient.Providers\MailClient.Providers.csproj" />
+    <ProjectReference Include="..\MailClient.Storage\MailClient.Storage.csproj" />
+    <ProjectReference Include="..\MailClient.Auth\MailClient.Auth.csproj" />
+  </ItemGroup>
+
+  <!--
+    调试 / 截图用的免打包运行：dotnet build -p:Platform=x64 -p:MailClientUnpackaged=true
+    （默认仍是单项目 MSIX 打包，不影响正式流程。）
+  -->
+  <PropertyGroup Condition="'$(MailClientUnpackaged)' == 'true'">
+    <WindowsPackageType>None</WindowsPackageType>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <SelfContained>true</SelfContained>
+  </PropertyGroup>
+
+  <!--
+    免打包 + 依赖已安装的 Windows App Runtime（框架依赖，由 Bootstrapper 加载，不需要包标识）：
+    dotnet build -p:Platform=x64 -p:MailClientUnpackaged=true -p:MailClientFrameworkDependent=true
+    用来验证本机的 Microsoft.WindowsAppRuntime.2 框架包能被正常激活。
+  -->
+  <PropertyGroup Condition="'$(MailClientUnpackaged)' == 'true' and '$(MailClientFrameworkDependent)' == 'true'">
+    <WindowsAppSDKSelfContained>false</WindowsAppSDKSelfContained>
+    <SelfContained>false</SelfContained>
+  </PropertyGroup>
+
+  <!-- 免打包（exe 安装包 / 绿色版）运行时用绝对路径读 Assets 里的图标，所以要把它们作为普通文件发布出来。 -->
+  <ItemGroup>
+    <Content Update="Assets\*.png" CopyToPublishDirectory="PreserveNewest" />
+    <Content Update="Assets\*.ico" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

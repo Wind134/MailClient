@@ -1,0 +1,13 @@
+{
+  "GmailClientId": "YOUR_GMAIL_CLIENT_ID.apps.googleusercontent.com",
+  "GmailClientSecret": "YOUR_GMAIL_CLIENT_SECRET",
+  "MicrosoftClientId": "YOUR_MSAL_CLIENT_ID",
+  "MicrosoftTenantId": "common",
+  "DemoDataDismissed": true,
+  "FirstRunPromptDismissed": false,
+  "NotificationsEnabled": true,
+  "KeepRunningInBackground": true,
+  "LinkOpenMode": "System",
+  "BodyCacheMaxAgeDays": 90,
+  "BodyCacheMaxMb": 200
+}

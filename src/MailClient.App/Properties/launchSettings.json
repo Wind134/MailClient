@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "MailClient.App (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "MailClient.App (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}

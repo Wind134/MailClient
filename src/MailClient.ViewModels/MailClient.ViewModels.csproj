@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MailClient.Core\MailClient.Core.csproj" />
+    <ProjectReference Include="..\MailClient.Storage\MailClient.Storage.csproj" />
+    <ProjectReference Include="..\MailClient.Auth\MailClient.Auth.csproj" />
+    <ProjectReference Include="..\MailClient.Providers\MailClient.Providers.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    单文件安装包的“外壳”：把 payload.zip（应用本体 + WinUI 安装界面，自包含）作为嵌入资源打进自己，
+    运行时先在 %TEMP% 解压，再启动里面的 MailClient.Setup.exe（WinUI 界面），等它退出后清理临时文件。
+    故意用 .NET Framework 4.7.2 + WinForms：Windows 10 1809 及以上自带，所以这个外壳不需要目标电脑装任何运行时；
+    载荷以嵌入资源（而不是追加在文件末尾）的方式存放，将来如果买了代码签名证书，可以直接给这个 exe 签名。
+    用法：dotnet build -c Release -p:PayloadZip=C:\path\payload.zip   （scripts\build-installer.ps1 会做这件事）
+  -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net472</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>MailClient-Setup</AssemblyName>
+    <RootNamespace>MailClient.Setup.Bootstrap</RootNamespace>
+    <AssemblyTitle>邮件 安装程序</AssemblyTitle>
+    <Description>邮件 安装程序</Description>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>AppIcon.ico</ApplicationIcon>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <DebugType>none</DebugType>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="System.IO.Compression" />
+    <Reference Include="System.IO.Compression.FileSystem" />
+    <EmbeddedResource Include="icon.png" LogicalName="icon.png" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(PayloadZip)' != ''">
+    <EmbeddedResource Include="$(PayloadZip)" LogicalName="payload.zip" Link="payload.zip" />
+  </ItemGroup>
+
+</Project>

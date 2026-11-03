@@ -1,0 +1,50 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    「邮件」安装 / 卸载程序的界面（WinUI 3，Fluent 风格，Mica 背景，跟随系统深浅色）。
+    免打包 + 自包含：不要求目标电脑装 .NET 或 Windows App Runtime。
+    它不单独分发：scripts\build-installer.ps1 把它和应用本体发布到同一个文件夹（共用 WinUI / .NET 运行时），
+    再由 MailClient.Setup.Bootstrap 打成单个 MailClient-Setup-版本号.exe。安装后这个 exe 同时也是卸载程序。
+    注意：这里所有 xaml 文件名都带 Setup 前缀，避免和主应用的 App.xbf / MainWindow.xbf 在合并后的文件夹里重名。
+  -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows10.0.26100.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+    <RootNamespace>MailClient.Setup</RootNamespace>
+    <AssemblyName>MailClient.Setup</AssemblyName>
+    <AssemblyTitle>邮件 安装程序</AssemblyTitle>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\AppIcon.ico</ApplicationIcon>
+    <Platforms>x64</Platforms>
+    <Platform>x64</Platform>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <UseWinUI>true</UseWinUI>
+    <WinUISDKReferences>false</WinUISDKReferences>
+    <EnableMsixTooling>true</EnableMsixTooling>
+    <WindowsPackageType>None</WindowsPackageType>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <SelfContained>true</SelfContained>
+    <PublishReadyToRun>false</PublishReadyToRun>
+    <PublishTrimmed>false</PublishTrimmed>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Page Remove="SetupApp.xaml" />
+    <ApplicationDefinition Include="SetupApp.xaml" />
+    <Content Include="Assets\AppIcon.ico" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="Assets\AppIcon.png" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.4654" />
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.3.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MailClient.Setup.Core\MailClient.Setup.Core.csproj" />
+  </ItemGroup>
+
+</Project>

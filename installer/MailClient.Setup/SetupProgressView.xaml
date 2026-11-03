@@ -1,0 +1,54 @@
+<UserControl
+    x:Class="MailClient.Setup.SetupProgressView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Grid Margin="40,52,40,28">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Orientation="Horizontal" Spacing="14">
+            <Image x:Name="PulseIcon" Source="ms-appx:///Assets/AppIcon.png" Width="44" Height="44"
+                   RenderTransformOrigin="0.5,0.5">
+                <Image.RenderTransform>
+                    <ScaleTransform x:Name="PulseScale" ScaleX="1" ScaleY="1" />
+                </Image.RenderTransform>
+                <Image.Resources>
+                    <Storyboard x:Name="PulseStory" RepeatBehavior="Forever" AutoReverse="True">
+                        <DoubleAnimation Storyboard.TargetName="PulseScale" Storyboard.TargetProperty="ScaleX"
+                                         From="1" To="1.12" Duration="0:0:0.9">
+                            <DoubleAnimation.EasingFunction>
+                                <SineEase EasingMode="EaseInOut" />
+                            </DoubleAnimation.EasingFunction>
+                        </DoubleAnimation>
+                        <DoubleAnimation Storyboard.TargetName="PulseScale" Storyboard.TargetProperty="ScaleY"
+                                         From="1" To="1.12" Duration="0:0:0.9">
+                            <DoubleAnimation.EasingFunction>
+                                <SineEase EasingMode="EaseInOut" />
+                            </DoubleAnimation.EasingFunction>
+                        </DoubleAnimation>
+                    </Storyboard>
+                </Image.Resources>
+            </Image>
+            <TextBlock x:Name="TitleText" Style="{StaticResource SetupTitle}" VerticalAlignment="Center" Text="正在安装「邮件」" />
+        </StackPanel>
+
+        <StackPanel Grid.Row="1" VerticalAlignment="Center" Spacing="14">
+            <TextBlock x:Name="PercentText" Text="0%" FontSize="60" FontWeight="Light"
+                       FontFamily="Segoe UI Variable Display, Microsoft YaHei UI"
+                       Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+            <ProgressBar x:Name="Bar" Minimum="0" Maximum="100" Value="0" Height="6" CornerRadius="3"
+                         Foreground="{StaticResource SetupAccentGradient}"
+                         AutomationProperties.AutomationId="InstallProgressBar" />
+            <StackPanel Spacing="3">
+                <TextBlock x:Name="StatusText" FontSize="14" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+                <TextBlock x:Name="DetailText" Style="{StaticResource SetupCaption}" TextTrimming="CharacterEllipsis" />
+            </StackPanel>
+        </StackPanel>
+
+        <TextBlock x:Name="FootText" Grid.Row="2" Style="{StaticResource SetupCaption}" Text="通常只需要几十秒，请不要关闭这个窗口。" />
+    </Grid>
+</UserControl>

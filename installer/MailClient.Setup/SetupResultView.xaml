@@ -1,0 +1,51 @@
+<UserControl
+    x:Class="MailClient.Setup.SetupResultView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Grid Margin="40,52,40,28">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel VerticalAlignment="Center" Spacing="14">
+            <Grid Width="76" Height="76" HorizontalAlignment="Left" RenderTransformOrigin="0.5,0.5">
+                <Grid.RenderTransform>
+                    <ScaleTransform x:Name="BadgeScale" ScaleX="0.4" ScaleY="0.4" />
+                </Grid.RenderTransform>
+                <Grid.Resources>
+                    <Storyboard x:Name="PopStory">
+                        <DoubleAnimation Storyboard.TargetName="BadgeScale" Storyboard.TargetProperty="ScaleX"
+                                         From="0.4" To="1" Duration="0:0:0.45">
+                            <DoubleAnimation.EasingFunction>
+                                <BackEase EasingMode="EaseOut" Amplitude="0.6" />
+                            </DoubleAnimation.EasingFunction>
+                        </DoubleAnimation>
+                        <DoubleAnimation Storyboard.TargetName="BadgeScale" Storyboard.TargetProperty="ScaleY"
+                                         From="0.4" To="1" Duration="0:0:0.45">
+                            <DoubleAnimation.EasingFunction>
+                                <BackEase EasingMode="EaseOut" Amplitude="0.6" />
+                            </DoubleAnimation.EasingFunction>
+                        </DoubleAnimation>
+                    </Storyboard>
+                </Grid.Resources>
+                <Ellipse x:Name="Badge" Fill="{StaticResource SetupAccentGradient}" />
+                <FontIcon x:Name="BadgeIcon" Glyph="&#xE73E;" FontSize="34" Foreground="White"
+                          FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" />
+            </Grid>
+
+            <TextBlock x:Name="TitleText" Style="{StaticResource SetupTitle}" />
+            <TextBlock x:Name="MessageText" Style="{StaticResource SetupBody}" />
+            <InfoBar x:Name="Hint" IsOpen="False" IsClosable="False" Severity="Informational" />
+            <CheckBox x:Name="OptionBox" Visibility="Collapsed" IsChecked="True" AutomationProperties.AutomationId="LaunchBox" />
+        </StackPanel>
+
+        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+            <Button x:Name="SecondaryButton" MinWidth="88" Visibility="Collapsed"
+                    AutomationProperties.AutomationId="SecondaryButton" Click="OnSecondary" />
+            <Button x:Name="PrimaryButton" MinWidth="112" Style="{StaticResource AccentButtonStyle}"
+                    AutomationProperties.AutomationId="PrimaryButton" Click="OnPrimary" />
+        </StackPanel>
+    </Grid>
+</UserControl>

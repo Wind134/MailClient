@@ -1,0 +1,42 @@
+<UserControl
+    x:Class="MailClient.Setup.SetupUninstallView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Grid Margin="40,52,40,28">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Style="{StaticResource SetupTitle}" Text="卸载「邮件」" />
+        <TextBlock Grid.Row="1" Style="{StaticResource SetupBody}" Margin="0,8,0,0"
+                   Text="将从这台电脑上移除「邮件」程序和它的快捷方式。你的邮件仍保存在各邮箱服务商的服务器上，不会受到影响。" />
+
+        <StackPanel Grid.Row="2" Spacing="10" Margin="0,22,0,0">
+            <Border Style="{StaticResource SetupCard}">
+                <StackPanel Spacing="3">
+                    <TextBlock Style="{StaticResource SetupCaption}" Text="当前安装" />
+                    <TextBlock x:Name="LocationText" FontSize="14" TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource SetupCard}">
+                <StackPanel Spacing="6">
+                    <CheckBox x:Name="DataBox" Content="同时删除我的邮件数据和设置" IsChecked="False"
+                              AutomationProperties.AutomationId="DeleteDataBox" />
+                    <TextBlock Style="{StaticResource SetupCaption}" TextWrapping="Wrap" Margin="32,0,0,0"
+                               Text="包括本机缓存的邮件、账户设置和已保存的登录信息，位于 %LocalAppData%\MailClient。不勾选的话，以后重新安装可以直接接着用。" />
+                </StackPanel>
+            </Border>
+        </StackPanel>
+
+        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+            <Button x:Name="CancelButton" Content="取消" MinWidth="88" AutomationProperties.AutomationId="CancelButton" Click="OnCancel" />
+            <Button x:Name="UninstallButton" Content="卸载" MinWidth="112" Style="{StaticResource AccentButtonStyle}"
+                    AutomationProperties.AutomationId="UninstallButton" Click="OnUninstall" />
+        </StackPanel>
+    </Grid>
+</UserControl>

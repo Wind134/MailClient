@@ -1,0 +1,53 @@
+<UserControl
+    x:Class="MailClient.Setup.SetupWelcomeView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Grid Margin="40,52,40,28">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Style="{StaticResource SetupTitle}" Text="欢迎使用「邮件」" />
+        <TextBlock Grid.Row="1" Style="{StaticResource SetupBody}" Margin="0,8,0,0"
+                   Text="简洁、快速的桌面邮件客户端，支持 Gmail、Outlook / Microsoft 365，以及 QQ、163 等任意 IMAP 邮箱。" />
+
+        <StackPanel Grid.Row="2" Spacing="10" Margin="0,20,0,0">
+            <InfoBar x:Name="Notice" IsOpen="False" IsClosable="False" Severity="Informational" />
+
+            <Border Style="{StaticResource SetupCard}">
+                <Grid ColumnSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Spacing="3" VerticalAlignment="Center">
+                        <TextBlock Style="{StaticResource SetupCaption}" Text="安装位置" />
+                        <TextBlock x:Name="PathText" FontSize="14" TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+                    <Button x:Name="BrowseButton" Grid.Column="1" Content="更改…" VerticalAlignment="Center"
+                            AutomationProperties.AutomationId="BrowseButton" Click="OnBrowse" />
+                </Grid>
+            </Border>
+
+            <TextBlock x:Name="ErrorText" Foreground="{ThemeResource SystemFillColorCriticalBrush}" FontSize="12"
+                       TextWrapping="Wrap" Visibility="Collapsed" />
+
+            <Border Style="{StaticResource SetupCard}" Padding="16,6">
+                <CheckBox x:Name="DesktopBox" Content="创建桌面快捷方式" IsChecked="True"
+                          AutomationProperties.AutomationId="DesktopShortcutBox" />
+            </Border>
+
+            <TextBlock x:Name="SpaceText" Style="{StaticResource SetupCaption}" Margin="2,2,0,0" />
+        </StackPanel>
+
+        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+            <Button x:Name="CancelButton" Content="取消" MinWidth="88" AutomationProperties.AutomationId="CancelButton" Click="OnCancel" />
+            <Button x:Name="InstallButton" Content="安装" MinWidth="112" Style="{StaticResource AccentButtonStyle}"
+                    AutomationProperties.AutomationId="InstallButton" Click="OnInstall" />
+        </StackPanel>
+    </Grid>
+</UserControl>
