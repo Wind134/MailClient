@@ -27,4 +27,8 @@
     <ProjectReference Include="..\..\src\MailClient.ViewModels\MailClient.ViewModels.csproj" />
     <ProjectReference Include="..\..\installer\MailClient.Setup.Core\MailClient.Setup.Core.csproj" />
   </ItemGroup>
+  <!-- Avoid cross-class async scheduling contention on small CI runners. -->
+  <ItemGroup>
+    <None Update="xunit.runner.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>
