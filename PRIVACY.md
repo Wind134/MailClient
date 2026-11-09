@@ -4,6 +4,8 @@
 
 本文说明开源桌面应用 **MailClient（「邮件」）** 如何处理与您相关的信息。本政策同时可作为 Google OAuth 同意屏幕所需的隐私权政策网址内容。
 
+网页版：<https://wind134.github.io/MailClient/privacy.html>（项目首页：<https://wind134.github.io/MailClient/>）。
+
 ---
 
 ## 中文
