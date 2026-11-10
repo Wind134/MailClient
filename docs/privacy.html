@@ -1,10 +1,11 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>MailClient 隐私权政策 / Privacy Policy</title>
-  <meta name="description" content="MailClient 隐私权政策：本地 Windows 桌面邮件客户端如何处理与您相关的信息。">
+  <title>MailClient Privacy Policy / 隐私权政策</title>
+  <meta name="description" content="MailClient Privacy Policy: what data the Windows desktop email client accesses, how it is used, stored, and deleted, including Google OAuth scopes and Limited Use.">
+  <meta name="robots" content="index,follow">
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
   <style>
     :root {
@@ -13,140 +14,326 @@
       --text: #1b1b1f;
       --muted: #5b5b66;
       --accent: #005fb8;
+      --accent-soft: #e8f1fb;
       --border: #d8dee9;
       --shadow: 0 10px 30px rgba(27, 43, 74, 0.08);
       --radius: 16px;
-      --max: 820px;
     }
     * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
     body {
       margin: 0;
       font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
       color: var(--text);
       background:
         radial-gradient(circle at top left, #dcebff 0, transparent 40%),
+        radial-gradient(circle at top right, #eef2ff 0, transparent 35%),
         var(--bg);
       line-height: 1.7;
     }
     a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
     a:hover { color: #004578; }
-    .wrap { max-width: var(--max); margin: 0 auto; padding: 24px 20px 64px; }
-    header {
+    .wrap { max-width: 920px; margin: 0 auto; padding: 24px 20px 64px; }
+    header.site {
       display: flex; align-items: center; justify-content: space-between;
       gap: 16px; padding: 8px 0 24px; flex-wrap: wrap;
     }
-    .brand { display: flex; align-items: center; gap: 12px; font-weight: 650; color: inherit; text-decoration: none; }
-    .brand img { width: 32px; height: 32px; border-radius: 8px; }
+    .brand { display: flex; align-items: center; gap: 12px; font-weight: 650; font-size: 1.05rem; color: inherit; text-decoration: none; }
+    .brand img { width: 36px; height: 36px; border-radius: 8px; }
     nav { display: flex; gap: 8px; flex-wrap: wrap; }
     .btn {
       display: inline-flex; align-items: center; justify-content: center;
-      padding: 9px 14px; border-radius: 999px; border: 1px solid var(--border);
-      background: var(--surface); color: var(--text); text-decoration: none; font-weight: 600; font-size: 0.92rem;
+      gap: 8px; padding: 10px 16px; border-radius: 999px;
+      border: 1px solid var(--border); background: var(--surface);
+      color: var(--text); text-decoration: none; font-weight: 600; font-size: 0.95rem;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.04);
     }
     .btn:hover { border-color: #adc6e8; color: var(--accent); }
-    article {
+    .btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .btn-primary:hover { background: #004578; border-color: #004578; color: #fff; }
+    section, article {
       background: var(--surface); border: 1px solid var(--border);
-      border-radius: var(--radius); box-shadow: var(--shadow);
-      padding: 36px 34px;
+      border-radius: var(--radius); padding: 28px 28px 24px; margin-bottom: 18px;
     }
-    h1 { margin: 0 0 8px; font-size: clamp(1.7rem, 3vw, 2.1rem); letter-spacing: -0.02em; }
-    .meta { color: var(--muted); margin: 0 0 24px; }
-    h2 {
-      margin: 28px 0 12px; padding-top: 8px; border-top: 1px solid var(--border);
-      font-size: 1.25rem;
+    .hero {
+      box-shadow: var(--shadow);
+      padding: 36px 32px;
+      border-radius: calc(var(--radius) + 4px);
     }
-    h2:first-of-type { border-top: 0; padding-top: 0; }
-    h3 { margin: 20px 0 8px; font-size: 1.05rem; }
-    p, ul { margin: 0 0 12px; }
-    ul { padding-left: 1.2rem; }
-    li { margin: 0 0 6px; }
-    code, .path { font-family: Consolas, "Cascadia Mono", ui-monospace, monospace; font-size: 0.92em; }
+    h1 { margin: 0 0 12px; font-size: clamp(2rem, 4vw, 2.5rem); letter-spacing: -0.03em; line-height: 1.15; }
+    h2 { margin: 0 0 10px; font-size: 1.35rem; letter-spacing: -0.02em; }
+    h3 { margin: 20px 0 8px; font-size: 1.08rem; }
+    p { margin: 0 0 12px; }
+    ul, ol { margin: 0 0 12px; padding-left: 1.2rem; }
+    li { margin: 0 0 8px; }
+    .lead { font-size: 1.08rem; }
+    .zh { color: #3f3f4a; }
+    .note {
+      background: var(--accent-soft); border: 1px solid #c9def5;
+      border-radius: 12px; padding: 14px 16px; margin: 16px 0 0;
+      font-size: 0.98rem;
+    }
+    table {
+      width: 100%; border-collapse: collapse; margin: 8px 0 16px;
+      font-size: 0.95rem;
+    }
+    th, td {
+      text-align: left; vertical-align: top;
+      border: 1px solid var(--border); padding: 10px 12px;
+    }
+    th { background: #f8fafc; }
+    code, .path { font-family: Consolas, "Cascadia Mono", ui-monospace, monospace; font-size: 0.92em; word-break: break-all; }
+    .links { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; }
+    footer.site {
+      margin-top: 28px; color: var(--muted); font-size: 0.9rem;
+      display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+    }
     hr { border: 0; border-top: 1px solid var(--border); margin: 32px 0; }
-    footer { margin-top: 24px; color: var(--muted); font-size: 0.9rem; }
-    @media (max-width: 640px) { article { padding: 24px 18px; } }
+    .meta { color: var(--muted); margin: 0 0 20px; }
+    article { box-shadow: var(--shadow); padding: 36px 34px; }
+    article h2 {
+      margin: 28px 0 12px; padding-top: 8px; border-top: 1px solid var(--border);
+    }
+    article h2:first-of-type { border-top: 0; padding-top: 0; margin-top: 0; }
+    @media (max-width: 640px) {
+      .hero, article { padding: 24px 18px; }
+      section { padding: 22px 18px; }
+    }
+
+    .wrap { max-width: 860px; }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <header>
+    <header class="site">
       <a class="brand" href="index.html">
         <img src="assets/logo-64.png" width="32" height="32" alt="MailClient icon">
         <span>MailClient</span>
       </a>
       <nav>
-        <a class="btn" href="index.html">返回首页</a>
+        <a class="btn" href="index.html">Home</a>
+        <a class="btn" href="https://github.com/Wind134/MailClient">GitHub</a>
         <a class="btn" href="https://github.com/Wind134/MailClient/issues">Issues</a>
       </nav>
     </header>
 
     <article>
-      <h1>MailClient 隐私权政策 / Privacy Policy</h1>
-      <p class="meta"><strong>生效日期 / Effective date：2026-11-09</strong></p>
-      <p>本文说明开源桌面应用 <strong>MailClient（「邮件」）</strong> 如何处理与您相关的信息。本政策同时可作为 Google OAuth 同意屏幕所需的隐私权政策网址内容。</p>
+      <h1>MailClient Privacy Policy / 隐私权政策</h1>
+      <p class="meta"><strong>Effective date / 生效日期：2026-11-10</strong></p>
+      <p>This policy explains how the open-source desktop application <strong>MailClient</strong> (the Windows display name may appear as 「邮件」) handles information related to you. The project homepage is <a href="index.html">https://wind134.github.io/MailClient/</a>. This page does not require a login.</p>
+      <div class="note">
+        <p>MailClient's use and transfer of information received from Google APIs to any other app will adhere to <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>, including the Limited Use requirements.</p>
+      </div>
 
-      <h2>中文</h2>
+      <h2>English</h2>
 
-      <h3>我们是谁、产品是什么</h3>
-      <p>MailClient 是一款在您自己的 Windows 电脑上运行的<strong>本地桌面邮件客户端</strong>。项目由 GitHub 用户 <a href="https://github.com/Wind134">Wind134</a> 维护，源代码位于 <a href="https://github.com/Wind134/MailClient">https://github.com/Wind134/MailClient</a>。</p>
-      <p>我们<strong>不运营</strong>用于接收、存储或分析您邮件内容的后端服务器，也<strong>不提供</strong>要求您把邮箱数据上传给我们的云同步服务。</p>
+      <h3>Who we are and what the product is</h3>
+      <p>MailClient is a <strong>free, open-source Windows desktop email client</strong>. It lets you read, search, write and send your own email from Gmail, Outlook / Microsoft 365, and IMAP accounts (for example QQ or 163) on your own PC.</p>
+      <p>The project is maintained by GitHub user <a href="https://github.com/Wind134">Wind134</a>. Source code is at <a href="https://github.com/Wind134/MailClient">https://github.com/Wind134/MailClient</a>.</p>
+      <p>We <strong>do not operate</strong> a backend server that receives, stores, or analyzes your mail, and we <strong>do not provide</strong> a cloud sync service that would require you to upload mailbox data to us. This website is public documentation; it has no user accounts and does not ask you to sign in.</p>
 
-      <h3>数据存储在哪里</h3>
-      <p>账号配置、邮件缓存、草稿、日志等默认保存在您本机：</p>
-      <p><code>%LocalAppData%\MailClient</code></p>
-      <p>其中包括（但不限于）：</p>
+      <h3>Data the app accesses</h3>
+      <p>Depending on the account type you add in the desktop app, MailClient may access the following categories of data <strong>on your device</strong>, in order to provide the email-client features you requested:</p>
       <ul>
-        <li><code>mail.db</code>：本地 SQLite 邮件与账号数据</li>
+        <li><strong>Email address and basic profile.</strong> For a Google account, this comes from the <code>openid</code>, <code>email</code>, and <code>profile</code> scopes (the email address, and basic profile information such as the account name). The app uses this to identify which Google account you authorized and to display that account in the client.</li>
+        <li><strong>Email messages.</strong> Message bodies (HTML or plain text) that you open or that are downloaded so you can read them later offline.</li>
+        <li><strong>Message headers.</strong> Subject, From, To, Cc, Bcc, Date, Message-ID, and similar envelope fields, used to list, sort, search, and thread mail.</li>
+        <li><strong>Attachments.</strong> Files attached to messages you open, save, or attach when composing mail.</li>
+        <li><strong>Folders and labels.</strong> Mailbox folders and Gmail labels (Inbox, Sent, Drafts, Trash, user labels, and so on) so the app can list and organize your mail the way the provider does.</li>
+        <li><strong>Addresses that appear in mail headers.</strong> Names and email addresses that already appear in From / To / Cc / Bcc fields of messages you sync. MailClient does <strong>not</strong> request the Google People or Contacts API; it does not download your address book as a separate data source.</li>
+        <li><strong>Account settings.</strong> Local settings you choose in the app (for example display preferences, or an OAuth client ID you paste yourself).</li>
+        <li><strong>OAuth tokens and credentials.</strong> Access tokens, refresh tokens, and (for IMAP accounts) passwords or app passwords, used only to authenticate to the mail provider you configured.</li>
+      </ul>
+      <p>MailClient does not collect advertising identifiers, analytics events, or crash reports.</p>
+
+      <h3>Google scopes requested</h3>
+      <p>When you authorize a Gmail account, MailClient requests these default scopes (defined in the project's <code>GmailScopes.Default</code>):</p>
+      <table>
+        <thead>
+          <tr><th>Scope</th><th>Purpose</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>https://mail.google.com/</code></td>
+            <td>Restricted mail scope. Used only to connect to Gmail <strong>IMAP</strong> (<code>imap.gmail.com:993</code>) and <strong>SMTP</strong> (<code>smtp.gmail.com:465</code>) with <strong>XOAUTH2</strong>, so the app can sync, display, search, organize, and send <strong>your own</strong> email on your device.</td>
+          </tr>
+          <tr>
+            <td><code>openid</code></td>
+            <td>OpenID Connect. Used so the authorization flow can authenticate the Google account and (with the ID token) confirm which account signed in.</td>
+          </tr>
+          <tr>
+            <td><code>email</code> (<code>https://www.googleapis.com/auth/userinfo.email</code>)</td>
+            <td>Read the Google account's email address so the app can show the correct account and match it to the mailbox you added.</td>
+          </tr>
+          <tr>
+            <td><code>profile</code> (<code>https://www.googleapis.com/auth/userinfo.profile</code>)</td>
+            <td>Read basic profile information (such as the account name) to label the account in the app.</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>The app does not request other Google scopes (for example Drive, Calendar, People/Contacts, or YouTube).</p>
+
+      <h3>How each type of data is used</h3>
+      <p>All of the data above is used <strong>only to provide MailClient's email-client features to you on your device</strong>:</p>
+      <ul>
+        <li><strong>Email address / basic profile:</strong> display the account in the folder list, confirm that the authorized Google account is the one you intended, and use the address as the IMAP/SMTP username for XOAUTH2.</li>
+        <li><strong>Messages, headers, attachments, folders/labels:</strong> download and cache mail so you can read, search, flag, file, delete, reply, forward, and send mail; keep a local copy of drafts you are writing; and keep the local view in sync with the provider.</li>
+        <li><strong>Addresses in headers:</strong> show senders and recipients, fill reply/forward addressing, and search by <code>from:</code> / <code>to:</code>.</li>
+        <li><strong>Account settings:</strong> remember how you configured the app on that Windows user profile.</li>
+        <li><strong>OAuth tokens and credentials:</strong> obtain and refresh access so the app can talk to Gmail (or your other provider) without asking you to authorize every time. Tokens are not used for any other product.</li>
+      </ul>
+      <p>Google user data is <strong>not</strong> used for advertising, analytics, personalization for third parties, or any purpose unrelated to providing or improving the user-facing email client.</p>
+
+      <h3>Storage and security</h3>
+      <p>Account configuration, mail cache, drafts, and logs are stored <strong>locally</strong> on your Windows PC under:</p>
+      <p><code>%LocalAppData%\MailClient</code></p>
+      <p>This typically includes:</p>
+      <ul>
+        <li><code>mail.db</code> — a local <strong>SQLite</strong> database of accounts and cached mail</li>
+        <li><code>settings.json</code> — app settings (may include OAuth client identifiers that <strong>you</strong> enter)</li>
+        <li><code>credentials.dat</code> — tokens and credentials, encrypted with Windows <strong>DPAPI</strong> (<code>CryptProtectData</code>, scoped to the <strong>current Windows user</strong>), so they usually can be decrypted only by that same Windows user</li>
+        <li>log files and local copies of draft / outbox attachments</li>
+      </ul>
+      <p>Network connections to mail providers and to Google's OAuth token endpoints use <strong>HTTPS / TLS</strong>. Optional update checks call the public GitHub Releases API over HTTPS and do not attach your email address, tokens, or mail content.</p>
+      <p>We do not operate a server that stores this data.</p>
+
+      <h3>Sharing</h3>
+      <p>MailClient <strong>does not share</strong> your mail or Google user data with the developer or with third parties. Data moves <strong>directly</strong> between your device and the mail provider you signed in to (for example Google or Microsoft) or an IMAP/SMTP server you configured. We do <strong>not</strong> sell data, we do <strong>not</strong> use it for advertising, and <strong>no human at MailClient reads your mail</strong> — there is no developer backend from which anyone could do so.</p>
+      <p>The only optional network call that is not a mail-provider request is an update check to <code>GET https://api.github.com/repos/Wind134/MailClient/releases/latest</code>. That request does not include your personal data (only ordinary HTTP headers such as User-Agent). Update installers, if you choose to download them, come from GitHub / GitHubusercontent HTTPS URLs.</p>
+
+      <h3>Artificial intelligence, machine learning, and AI NCII</h3>
+      <p>MailClient <strong>does not use AI or machine learning on Google user data</strong>. It does <strong>not</strong> train models on your mail or any other Google user data, does <strong>not</strong> generate images, and does <strong>not</strong> use Google APIs to create or distribute AI-generated non-consensual intimate imagery (<strong>AI NCII</strong>).</p>
+      <p>The app complies with the <a href="https://developers.google.com/terms">Google APIs Terms of Service</a> and the <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>, including <strong>Limited Use</strong>.</p>
+      <p>MailClient's use and transfer of information received from Google APIs to any other app will adhere to Google API Services User Data Policy, including the Limited Use requirements.</p>
+
+      <h3>Retention and deletion</h3>
+      <p>Data stays on your device until you remove it:</p>
+      <ul>
+        <li>Remove the account inside MailClient to drop that account's local cache and stored tokens (the app also attempts to revoke the Google token at <code>https://oauth2.googleapis.com/revoke</code>).</li>
+        <li>Uninstall the app. The installer <strong>keeps</strong> <code>%LocalAppData%\MailClient</code> unless you check the option to delete local mail data and settings, or you delete that folder yourself.</li>
+        <li>Revoke MailClient / the corresponding OAuth client in <a href="https://myaccount.google.com/permissions">Google Account → Third-party apps &amp; services</a>. After you revoke access, existing tokens will stop working.</li>
+      </ul>
+
+      <h3>Children</h3>
+      <p>MailClient is a general-purpose desktop email client. It is <strong>not directed at children under 13</strong>, and we do not knowingly collect personal information from children. Because the app does not operate a developer backend, we do not collect information from users of any age on our servers.</p>
+
+      <h3>Changes to this policy</h3>
+      <p>If this policy changes, we will update this page and the copy in the GitHub repository, and we will change the effective date at the top. The current web address remains <a href="privacy.html">https://wind134.github.io/MailClient/privacy.html</a>.</p>
+
+      <h3>Contact</h3>
+      <p>For privacy questions, please use GitHub Issues:</p>
+      <p><a href="https://github.com/Wind134/MailClient/issues">https://github.com/Wind134/MailClient/issues</a></p>
+      <p>Do not paste tokens, passwords, or full email bodies in an Issue.</p>
+
+      <hr>
+
+      <h2 lang="zh-CN">中文</h2>
+
+      <h3 lang="zh-CN">我们是谁、产品是什么</h3>
+      <p lang="zh-CN">MailClient 是一款<strong>免费、开源的 Windows 桌面邮件客户端</strong>（Windows 上显示名称可为「邮件」）。您可以在自己的电脑上阅读、搜索、撰写并发送来自 Gmail、Outlook / Microsoft 365 以及 IMAP 账号（例如 QQ、163）的邮件。</p>
+      <p lang="zh-CN">项目由 GitHub 用户 <a href="https://github.com/Wind134">Wind134</a> 维护，源代码位于 <a href="https://github.com/Wind134/MailClient">https://github.com/Wind134/MailClient</a>。</p>
+      <p lang="zh-CN">我们<strong>不运营</strong>用于接收、存储或分析您邮件内容的后端服务器，也<strong>不提供</strong>要求您把邮箱数据上传给我们的云同步服务。本网站是公开说明文档，没有用户账号，也不要求您在网站上登录。</p>
+
+      <h3 lang="zh-CN">应用会访问哪些数据</h3>
+      <p lang="zh-CN">根据您在桌面应用中添加的账号类型，MailClient 可能在<strong>您的设备上</strong>访问以下类别的数据，且仅用于提供您所使用的邮件客户端功能：</p>
+      <ul lang="zh-CN">
+        <li><strong>电子邮箱地址与基本资料。</strong> 对 Google 账号而言，这些信息来自 <code>openid</code>、<code>email</code>、<code>profile</code> 范围（邮箱地址，以及账号名称等基本资料）。应用用它们识别您授权的 Google 账号，并在客户端中显示该账号。</li>
+        <li><strong>邮件正文。</strong> 您打开或为离线阅读而下载的邮件正文（HTML 或纯文本）。</li>
+        <li><strong>邮件头。</strong> 主题、发件人、收件人、抄送、密送、日期、Message-ID 等，用于列表、排序、搜索和会话归组。</li>
+        <li><strong>附件。</strong> 您打开、另存，或在撰写邮件时添加的附件。</li>
+        <li><strong>文件夹与标签。</strong> 收件箱、已发送、草稿、已删除以及您自己的标签等，以便按服务商的结构组织邮件。</li>
+        <li><strong>出现在邮件头中的地址。</strong> 已同步邮件的发件人 / 收件人 / 抄送 / 密送字段中的姓名与邮箱。MailClient <strong>不</strong>申请 Google People 或 Contacts API，也不会单独下载您的通讯录。</li>
+        <li><strong>账号设置。</strong> 您在应用中选择的本地设置（例如界面偏好，或您自行填写的 OAuth 客户端 ID）。</li>
+        <li><strong>OAuth 令牌与凭据。</strong> 访问令牌、刷新令牌，以及（IMAP 账号的）密码或应用专用密码，仅用于向您配置的邮件服务商进行身份验证。</li>
+      </ul>
+      <p lang="zh-CN">MailClient 不收集广告标识、分析事件或崩溃报告。</p>
+
+      <h3 lang="zh-CN">向 Google 申请的范围（Scopes）</h3>
+      <p lang="zh-CN">当您授权 Gmail 账号时，MailClient 默认申请以下范围（项目中的 <code>GmailScopes.Default</code>）：</p>
+      <table>
+        <thead>
+          <tr><th>范围</th><th>用途</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>https://mail.google.com/</code></td>
+            <td lang="zh-CN">受限邮件范围。仅用于通过 <strong>XOAUTH2</strong> 连接 Gmail <strong>IMAP</strong>（<code>imap.gmail.com:993</code>）和 <strong>SMTP</strong>（<code>smtp.gmail.com:465</code>），以便在您的设备上同步、展示、搜索、整理和发送<strong>您自己的</strong>邮件。</td>
+          </tr>
+          <tr>
+            <td><code>openid</code></td>
+            <td lang="zh-CN">OpenID Connect。用于完成授权流程、确认是哪一个 Google 账号完成了授权。</td>
+          </tr>
+          <tr>
+            <td><code>email</code>（<code>https://www.googleapis.com/auth/userinfo.email</code>）</td>
+            <td lang="zh-CN">读取该 Google 账号的邮箱地址，以便在应用中显示正确账号并与您添加的邮箱对应。</td>
+          </tr>
+          <tr>
+            <td><code>profile</code>（<code>https://www.googleapis.com/auth/userinfo.profile</code>）</td>
+            <td lang="zh-CN">读取基本资料（如账号名称），用于在应用中标注该账号。</td>
+          </tr>
+        </tbody>
+      </table>
+      <p lang="zh-CN">应用不申请其他 Google 范围（例如 Drive、Calendar、People/Contacts 或 YouTube）。</p>
+
+      <h3 lang="zh-CN">各类数据如何使用</h3>
+      <p lang="zh-CN">上述数据<strong>仅用于在您的设备上向您提供 MailClient 的邮件客户端功能</strong>：</p>
+      <ul lang="zh-CN">
+        <li><strong>邮箱地址 / 基本资料：</strong> 在文件夹列表中显示账号，确认授权的 Google 账号符合预期，并将该地址用作 XOAUTH2 的 IMAP/SMTP 用户名。</li>
+        <li><strong>邮件、邮件头、附件、文件夹/标签：</strong> 下载并缓存邮件，供您阅读、搜索、标记、归档、删除、回复、转发和发送；保存您正在撰写的本地草稿；并与服务商保持同步。</li>
+        <li><strong>邮件头中的地址：</strong> 显示发件人与收件人，预填回复/转发地址，以及按 <code>from:</code> / <code>to:</code> 搜索。</li>
+        <li><strong>账号设置：</strong> 记住该 Windows 用户下的应用配置。</li>
+        <li><strong>OAuth 令牌与凭据：</strong> 获取并刷新访问权限，使应用可以连接 Gmail（或其他服务商），而不必每次都重新授权。令牌不用于其他产品。</li>
+      </ul>
+      <p lang="zh-CN">Google 用户数据<strong>不会</strong>用于广告、分析、向第三方做个性化，或与提供、改进面向用户的邮件客户端无关的目的。</p>
+
+      <h3 lang="zh-CN">存储与安全</h3>
+      <p lang="zh-CN">账号配置、邮件缓存、草稿和日志默认保存在您本机：</p>
+      <p><code>%LocalAppData%\MailClient</code></p>
+      <p lang="zh-CN">其中包括（但不限于）：</p>
+      <ul lang="zh-CN">
+        <li><code>mail.db</code>：本地 <strong>SQLite</strong> 邮件与账号数据</li>
         <li><code>settings.json</code>：应用设置（可含您自行填写的 OAuth ClientId / ClientSecret 等配置）</li>
         <li><code>credentials.dat</code>：登录凭据与令牌；使用 Windows <strong>DPAPI</strong>（<code>CryptProtectData</code>，<strong>当前 Windows 用户</strong>范围）加密后写入，通常仅同一 Windows 用户可解密</li>
         <li>同步 / 更新等日志文件，以及草稿、发件箱附件的本地副本目录</li>
       </ul>
-      <p>卸载时，安装程序默认<strong>保留</strong>上述用户数据；只有您主动勾选删除本地数据，或手动删除该目录，数据才会被清除。</p>
+      <p lang="zh-CN">与邮件服务商以及 Google OAuth 令牌端点的网络连接使用 <strong>HTTPS / TLS</strong>。若开启「检查更新」，应用会请求 GitHub 公开接口，<strong>不附带</strong>您的邮箱地址、令牌或邮件内容。</p>
+      <p lang="zh-CN">我们不运营用于保存这些数据的服务器。卸载时，安装程序默认<strong>保留</strong>上述用户数据；只有您主动勾选删除本地数据，或手动删除该目录，数据才会被清除。</p>
 
-      <h3>我们收集什么</h3>
-      <p><strong>我们不收集、不上传、不出售您的个人数据。</strong></p>
-      <p>本应用<strong>没有</strong>内置遥测、分析、广告标识或崩溃上报服务；不会把您的邮件内容、通讯录或账号信息发送给开发者。</p>
+      <h3 lang="zh-CN">共享</h3>
+      <p lang="zh-CN">MailClient <strong>不会</strong>把您的邮件或 Google 用户数据分享给开发者或任何第三方。数据只在您的设备与您登录的邮件服务商（例如 Google、Microsoft）或您配置的 IMAP/SMTP 服务器之间<strong>直接</strong>传输。我们<strong>不出售</strong>数据，<strong>不用于广告</strong>，也<strong>没有人</strong>在 MailClient 一侧阅读您的邮件——本项目没有可供他人查看这些数据的开发者后端。</p>
+      <p lang="zh-CN">除连接邮件服务商之外，唯一可选的网络请求是检查更新：<code>GET https://api.github.com/repos/Wind134/MailClient/releases/latest</code>。该请求<strong>不附带</strong>您的邮箱地址、令牌或其他个人数据（仅常规 HTTP 请求头，例如 User-Agent）。下载更新安装包时，仅从 GitHub / GitHubusercontent 的 HTTPS 地址获取发布资源。</p>
 
-      <h3>应用会连接哪些服务</h3>
-      <p>应用只会为完成您主动配置的邮件功能，<strong>直接</strong>连接您登录的邮件服务商，例如：</p>
-      <ul>
-        <li>Google（Gmail OAuth / IMAP / SMTP）</li>
-        <li>Microsoft（Microsoft Graph / Outlook）</li>
-        <li>您配置的其他 IMAP/SMTP 服务器（如 QQ、163/126 等）</li>
-      </ul>
-      <p>此外，若开启「检查更新」，应用会请求 GitHub 公开接口：</p>
-      <p><code>GET https://api.github.com/repos/Wind134/MailClient/releases/latest</code></p>
-      <p>该请求<strong>不附带</strong>您的邮箱地址、令牌或其他个人数据（仅常规 HTTP 请求头，例如 User-Agent）。下载更新安装包时，仅从 GitHub / GitHubusercontent 的 HTTPS 地址获取发布资源。</p>
+      <h3 lang="zh-CN">人工智能、机器学习与 AI NCII</h3>
+      <p lang="zh-CN">MailClient <strong>不会对 Google 用户数据使用人工智能或机器学习</strong>，<strong>不会</strong>用您的邮件或其他 Google 用户数据训练模型，<strong>不会</strong>生成图像，也<strong>不会</strong>使用 Google API 创建或传播人工智能生成的非自愿亲密影像（<strong>AI NCII</strong>）。</p>
+      <p lang="zh-CN">本应用遵守 <a href="https://developers.google.com/terms">Google APIs Terms of Service</a> 与 <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>，包括 <strong>Limited Use（有限使用）</strong> 要求。</p>
+      <p>MailClient's use and transfer of information received from Google APIs to any other app will adhere to Google API Services User Data Policy, including the Limited Use requirements.</p>
 
-      <h3>Google 用户数据的使用（Limited Use）</h3>
-      <p>若您使用 Google 账号登录，MailClient 仅将 Google 用户数据用于<strong>在您的设备上收发与管理您自己的邮件</strong>（例如通过 OAuth 取得令牌后连接 Gmail IMAP/SMTP、同步与展示邮件、发送您撰写的邮件）。</p>
-      <p>我们遵守 <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>，包括 <strong>Limited Use（有限使用）</strong> 要求：不会将 Google 用户数据用于广告，不会出售，不会用于与提供或改进面向用户的邮件客户端功能无关的目的，也不会在未经您授权的情况下向无关第三方披露。</p>
-      <p>Google 相关令牌保存在本机 <code>credentials.dat</code>（DPAPI 加密），不会上传到开发者服务器（本项目也没有此类服务器）。</p>
-
-      <h3>您如何控制与撤销</h3>
-      <ul>
-        <li>在 <a href="https://myaccount.google.com/permissions">Google 账号 → 第三方应用与服务的访问权限</a> 中撤销 MailClient / 相应 OAuth 客户端的访问</li>
-        <li>在应用内移除对应邮箱账号</li>
-        <li>卸载应用；如需清除本地缓存与凭据，请在卸载时勾选删除本地数据，或手动删除 <code>%LocalAppData%\MailClient</code></li>
+      <h3 lang="zh-CN">保留与删除</h3>
+      <ul lang="zh-CN">
+        <li>在 MailClient 内移除对应邮箱账号，以清除该账号的本地缓存与已存储令牌（应用也会尽量向 <code>https://oauth2.googleapis.com/revoke</code> 撤销 Google 令牌）。</li>
+        <li>卸载应用。除非您勾选删除本地邮件数据与设置，或手动删除 <code>%LocalAppData%\MailClient</code>，安装程序会<strong>保留</strong>该目录。</li>
+        <li>在 <a href="https://myaccount.google.com/permissions">Google 账号 → 第三方应用与服务的访问权限</a> 中撤销 MailClient / 相应 OAuth 客户端的访问。撤销后，已有令牌将失效。</li>
       </ul>
 
-      <h3>联系方式</h3>
-      <p>如有隐私相关问题，请通过 GitHub Issues 联系：</p>
+      <h3 lang="zh-CN">儿童</h3>
+      <p lang="zh-CN">MailClient 是通用桌面邮件客户端，<strong>并非面向 13 岁以下儿童</strong>，我们也不会在知情情况下收集儿童的个人信息。由于应用没有开发者后端，我们不会在自己的服务器上收集任何年龄用户的信息。</p>
+
+      <h3 lang="zh-CN">政策变更</h3>
+      <p lang="zh-CN">若本政策有更新，我们会修改本页以及 GitHub 仓库中的副本，并更新文首的生效日期。现行网址仍为 <a href="privacy.html">https://wind134.github.io/MailClient/privacy.html</a>。</p>
+
+      <h3 lang="zh-CN">联系方式</h3>
+      <p lang="zh-CN">如有隐私相关问题，请通过 GitHub Issues 联系：</p>
       <p><a href="https://github.com/Wind134/MailClient/issues">https://github.com/Wind134/MailClient/issues</a></p>
-      <p>请勿在 Issue 中粘贴令牌、密码或完整邮件正文。</p>
-
-      <hr>
-
-      <h2>English (summary)</h2>
-      <p><strong>Effective date: 2026-11-09</strong></p>
-      <p>MailClient is a <strong>local Windows desktop email client</strong>. Mail, account settings, and tokens stay on your device under <code>%LocalAppData%\MailClient</code>. Tokens in <code>credentials.dat</code> are protected with Windows <strong>DPAPI</strong> (<code>CryptProtectData</code>, current Windows user). We do <strong>not</strong> operate a backend that collects your mail, and the app includes <strong>no telemetry/analytics</strong>.</p>
-      <p>The app connects <strong>directly</strong> to the mail providers you sign in to (Google, Microsoft, or your IMAP/SMTP servers). Optional update checks call the public GitHub Releases API (<code>api.github.com</code>) and do <strong>not</strong> send your personal data.</p>
-      <p>Google user data is used only to send, receive, and manage <strong>your own</strong> email on your device, in accordance with the <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>, including <strong>Limited Use</strong>.</p>
-      <p>You may revoke access in your Google Account permissions, remove the account in the app, uninstall, and delete local data. Contact: <a href="https://github.com/Wind134/MailClient/issues">https://github.com/Wind134/MailClient/issues</a>.</p>
+      <p lang="zh-CN">请勿在 Issue 中粘贴令牌、密码或完整邮件正文。</p>
     </article>
 
-    <footer>
-      <a href="index.html">← 返回 MailClient 首页</a>
-      · Maintained by <a href="https://github.com/Wind134">Wind134</a>
+    <footer class="site">
+      <div>© 2026 Wind134 · MailClient</div>
+      <div>
+        <a href="index.html">Home</a>
+        ·
+        <a href="https://github.com/Wind134/MailClient/issues">Contact (GitHub Issues)</a>
+      </div>
     </footer>
   </div>
 </body>

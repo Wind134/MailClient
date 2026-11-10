@@ -1,10 +1,11 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>MailClient — 本地 Windows 桌面邮件客户端</title>
-  <meta name="description" content="MailClient 是一款在您自己的 Windows 电脑上运行的本地桌面邮件客户端。支持 Gmail、Outlook / Microsoft 365、QQ / 163 与通用 IMAP。开源、无遥测、邮件留在本机。">
+  <title>MailClient — a free, open-source Windows desktop email client</title>
+  <meta name="description" content="MailClient is a free, open-source Windows desktop email client. It lets you read, search, write and send your own email from Gmail, Outlook and IMAP accounts on your own PC. No developer backend, no telemetry.">
+  <meta name="robots" content="index,follow">
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
   <link rel="apple-touch-icon" href="assets/logo-192.png">
   <style>
@@ -18,7 +19,6 @@
       --border: #d8dee9;
       --shadow: 0 10px 30px rgba(27, 43, 74, 0.08);
       --radius: 16px;
-      --max: 920px;
     }
     * { box-sizing: border-box; }
     html { scroll-behavior: smooth; }
@@ -30,14 +30,14 @@
         radial-gradient(circle at top left, #dcebff 0, transparent 40%),
         radial-gradient(circle at top right, #eef2ff 0, transparent 35%),
         var(--bg);
-      line-height: 1.65;
+      line-height: 1.7;
     }
     a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
     a:hover { color: #004578; }
-    .wrap { max-width: var(--max); margin: 0 auto; padding: 24px 20px 64px; }
-    header {
+    .wrap { max-width: 920px; margin: 0 auto; padding: 24px 20px 64px; }
+    header.site {
       display: flex; align-items: center; justify-content: space-between;
-      gap: 16px; padding: 8px 0 28px; flex-wrap: wrap;
+      gap: 16px; padding: 8px 0 24px; flex-wrap: wrap;
     }
     .brand { display: flex; align-items: center; gap: 12px; font-weight: 650; font-size: 1.05rem; color: inherit; text-decoration: none; }
     .brand img { width: 36px; height: 36px; border-radius: 8px; }
@@ -52,142 +52,166 @@
     .btn:hover { border-color: #adc6e8; color: var(--accent); }
     .btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
     .btn-primary:hover { background: #004578; border-color: #004578; color: #fff; }
-    .hero {
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: calc(var(--radius) + 4px); box-shadow: var(--shadow);
-      padding: 40px 36px; margin-bottom: 28px;
-    }
-    .hero-top { display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap; }
-    .hero img.logo { width: 72px; height: 72px; border-radius: 18px; box-shadow: 0 8px 20px rgba(0,95,184,0.18); }
-    .eyebrow {
-      display: inline-block; padding: 4px 10px; border-radius: 999px;
-      background: var(--accent-soft); color: var(--accent); font-size: 0.82rem; font-weight: 650;
-      margin-bottom: 10px;
-    }
-    h1 { margin: 0 0 10px; font-size: clamp(2rem, 4vw, 2.6rem); letter-spacing: -0.03em; line-height: 1.15; }
-    .tagline { margin: 0; color: var(--muted); font-size: 1.08rem; max-width: 42rem; }
-    .tagline-en { margin: 10px 0 0; color: #7a7a88; font-size: 0.95rem; max-width: 42rem; }
-    .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 24px; }
-    section {
+    section, article {
       background: var(--surface); border: 1px solid var(--border);
       border-radius: var(--radius); padding: 28px 28px 24px; margin-bottom: 18px;
     }
-    h2 { margin: 0 0 8px; font-size: 1.35rem; letter-spacing: -0.02em; }
-    .en-sub { margin: 0 0 16px; color: var(--muted); font-size: 0.92rem; }
+    .hero {
+      box-shadow: var(--shadow);
+      padding: 36px 32px;
+      border-radius: calc(var(--radius) + 4px);
+    }
+    h1 { margin: 0 0 12px; font-size: clamp(2rem, 4vw, 2.5rem); letter-spacing: -0.03em; line-height: 1.15; }
+    h2 { margin: 0 0 10px; font-size: 1.35rem; letter-spacing: -0.02em; }
+    h3 { margin: 20px 0 8px; font-size: 1.08rem; }
     p { margin: 0 0 12px; }
-    ul { margin: 0; padding-left: 1.2rem; }
+    ul, ol { margin: 0 0 12px; padding-left: 1.2rem; }
     li { margin: 0 0 8px; }
-    .grid {
-      display: grid; gap: 12px;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      margin-top: 8px;
+    .lead { font-size: 1.08rem; }
+    .zh { color: #3f3f4a; }
+    .note {
+      background: var(--accent-soft); border: 1px solid #c9def5;
+      border-radius: 12px; padding: 14px 16px; margin: 16px 0 0;
+      font-size: 0.98rem;
     }
-    .card {
-      background: #f8fafc; border: 1px solid var(--border);
-      border-radius: 12px; padding: 16px;
+    table {
+      width: 100%; border-collapse: collapse; margin: 8px 0 16px;
+      font-size: 0.95rem;
     }
-    .card strong { display: block; margin-bottom: 6px; }
-    .card span { color: var(--muted); font-size: 0.92rem; }
+    th, td {
+      text-align: left; vertical-align: top;
+      border: 1px solid var(--border); padding: 10px 12px;
+    }
+    th { background: #f8fafc; }
+    code, .path { font-family: Consolas, "Cascadia Mono", ui-monospace, monospace; font-size: 0.92em; word-break: break-all; }
     .links { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; }
-    footer {
+    footer.site {
       margin-top: 28px; color: var(--muted); font-size: 0.9rem;
       display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;
     }
-    code, .path { font-family: Consolas, "Cascadia Mono", ui-monospace, monospace; font-size: 0.92em; }
+    hr { border: 0; border-top: 1px solid var(--border); margin: 32px 0; }
+    .meta { color: var(--muted); margin: 0 0 20px; }
+    article { box-shadow: var(--shadow); padding: 36px 34px; }
+    article h2 {
+      margin: 28px 0 12px; padding-top: 8px; border-top: 1px solid var(--border);
+    }
+    article h2:first-of-type { border-top: 0; padding-top: 0; margin-top: 0; }
     @media (max-width: 640px) {
-      .hero { padding: 28px 20px; }
+      .hero, article { padding: 24px 18px; }
       section { padding: 22px 18px; }
     }
+
   </style>
 </head>
 <body>
   <div class="wrap">
-    <header>
+    <header class="site">
       <a class="brand" href="index.html">
         <img src="assets/logo-64.png" width="36" height="36" alt="MailClient icon">
         <span>MailClient</span>
       </a>
       <nav>
-        <a class="btn" href="privacy.html">隐私权政策</a>
+        <a class="btn" href="privacy.html">Privacy Policy</a>
         <a class="btn" href="https://github.com/Wind134/MailClient">GitHub</a>
-        <a class="btn btn-primary" href="https://github.com/Wind134/MailClient/releases">下载 / Releases</a>
+        <a class="btn btn-primary" href="https://github.com/Wind134/MailClient/releases">Releases</a>
       </nav>
     </header>
 
     <section class="hero" aria-labelledby="hero-title">
-      <div class="hero-top">
-        <img class="logo" src="assets/logo-192.png" width="72" height="72" alt="MailClient">
-        <div>
-          <div class="eyebrow">开源 · 本地优先 · Windows</div>
-          <h1 id="hero-title">MailClient</h1>
-          <p class="tagline">一款在您自己的 Windows 电脑上运行的本地桌面邮件客户端。邮件、账号与登录凭据保存在本机，不经过开发者服务器。</p>
-          <p class="tagline-en">A local Windows desktop email client. Your mail stays on your PC — open source, no developer backend, no telemetry.</p>
-          <div class="actions">
-            <a class="btn btn-primary" href="https://github.com/Wind134/MailClient/releases">下载 / Releases</a>
-            <a class="btn" href="https://github.com/Wind134/MailClient">源代码 / Source</a>
-            <a class="btn" href="privacy.html">隐私权政策 / Privacy</a>
-          </div>
-        </div>
+      <h1 id="hero-title">MailClient</h1>
+      <p class="lead">MailClient is a free, open-source Windows desktop email client. It lets you read, search, write and send your own email from Gmail, Outlook and IMAP accounts on your own PC.</p>
+      <p class="lead zh" lang="zh-CN">MailClient 是一款免费、开源的 Windows 桌面邮件客户端。您可以在自己的电脑上阅读、搜索、撰写并发送来自 Gmail、Outlook 和 IMAP 账号的邮件。</p>
+      <p>This website is public documentation. It does not require a login, does not have user accounts, and does not collect mail. MailClient runs only as a desktop app on your Windows PC.</p>
+      <p class="zh" lang="zh-CN">本网站是公开说明页，无需登录，没有用户账号，也不会收集邮件。MailClient 只作为桌面应用在您的 Windows 电脑上运行。</p>
+      <div class="links">
+        <a class="btn" href="privacy.html">Privacy Policy / 隐私权政策</a>
+        <a class="btn" href="https://github.com/Wind134/MailClient">Source on GitHub</a>
+        <a class="btn" href="https://github.com/Wind134/MailClient/releases">Releases</a>
+        <a class="btn" href="https://github.com/Wind134/MailClient/issues">Contact / Issues</a>
       </div>
     </section>
 
     <section id="about" aria-labelledby="about-title">
-      <h2 id="about-title">这是什么</h2>
-      <p class="en-sub">What it is</p>
-      <p><strong>MailClient</strong> 是个人维护的开源 WinUI 3 邮件客户端（Windows 上显示名称可为「邮件」）。它直接连接您登录的邮件服务商，在本机用 SQLite 缓存邮件与账号数据。</p>
-      <p>我们<strong>不运营</strong>用于接收、存储或分析您邮件内容的后端服务器，也<strong>不提供</strong>要求您把邮箱数据上传给我们的云同步服务。</p>
-      <p>项目由 GitHub 用户 <a href="https://github.com/Wind134">Wind134</a> 维护，源代码位于 <a href="https://github.com/Wind134/MailClient">github.com/Wind134/MailClient</a>。</p>
+      <h2 id="about-title">What MailClient is / 这是什么</h2>
+      <p>MailClient is a personal, open-source WinUI 3 application for Windows 10 and Windows 11. You add one or more of your own mail accounts, and the app talks <strong>directly</strong> to those providers from your computer. Mail, account settings, and credentials stay in a local SQLite database and encrypted credential file under <code>%LocalAppData%\MailClient</code>.</p>
+      <p>The project supports:</p>
+      <ul>
+        <li><strong>Gmail</strong>, using Google OAuth 2.0 (installed / desktop app flow with PKCE) and then IMAP/SMTP over XOAUTH2</li>
+        <li><strong>Outlook / Microsoft 365</strong>, using Microsoft Graph and MSAL</li>
+        <li><strong>QQ, 163/126, and other IMAP/SMTP</strong> servers</li>
+      </ul>
+      <p>We do <strong>not</strong> operate a backend that receives, stores, or analyzes your mail, and we do <strong>not</strong> offer a cloud service that would require you to upload mailbox data to the developer. The app includes <strong>no telemetry, analytics, or advertising</strong>. Optional update checks query only the public GitHub Releases API and do not send your email address or tokens.</p>
+      <p>MailClient is maintained by GitHub user <a href="https://github.com/Wind134">Wind134</a>. The source code is at <a href="https://github.com/Wind134/MailClient">github.com/Wind134/MailClient</a>. On Windows the Start Menu shortcut may appear as 「邮件」, but the product name is <strong>MailClient</strong>.</p>
+      <p class="zh" lang="zh-CN">MailClient 是个人维护的开源 WinUI 3 应用，适用于 Windows 10 / 11。您在本机添加自己的邮箱账号后，应用会从这台电脑<strong>直接</strong>连接相应的邮件服务商。邮件、账号设置和凭据保存在 <code>%LocalAppData%\MailClient</code> 下的本地 SQLite 数据库和加密凭据文件中。我们不运营接收或分析邮件的后端，也没有遥测。项目由 GitHub 用户 <a href="https://github.com/Wind134">Wind134</a> 维护。</p>
     </section>
 
-    <section id="features" aria-labelledby="features-title">
-      <h2 id="features-title">主要功能</h2>
-      <p class="en-sub">Features</p>
-      <div class="grid">
-        <div class="card">
-          <strong>本地存储</strong>
-          <span>账号、邮件缓存与草稿保存在本机 <span class="path">%LocalAppData%\MailClient</span>（SQLite）。</span>
-        </div>
-        <div class="card">
-          <strong>多账号</strong>
-          <span>支持 Gmail（OAuth）、Outlook / Microsoft 365（MSAL / Graph）、QQ / 163 / 126 与通用 IMAP/SMTP。</span>
-        </div>
-        <div class="card">
-          <strong>凭据保护</strong>
-          <span>登录令牌与密码使用 Windows DPAPI（当前用户范围）加密保存。</span>
-        </div>
-        <div class="card">
-          <strong>更新检查</strong>
-          <span>可选：仅请求 GitHub Releases 公开接口，不附带邮箱地址或令牌。</span>
-        </div>
+    <section id="google-data" aria-labelledby="google-data-title">
+      <h2 id="google-data-title">How MailClient uses Google data / Google 用户数据的用途</h2>
+      <p>If you choose to add a Gmail account in the desktop app, MailClient requests only the following Google OAuth scopes:</p>
+      <table>
+        <thead>
+          <tr><th>Scope</th><th>Why it is requested</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>https://mail.google.com/</code></td>
+            <td>Restricted mail scope. Used only to connect to Gmail IMAP (<code>imap.gmail.com:993</code>) and SMTP (<code>smtp.gmail.com:465</code>) with XOAUTH2, so you can sync, display, search, organize, and send <strong>your own</strong> email on your device.</td>
+          </tr>
+          <tr>
+            <td><code>openid</code></td>
+            <td>OpenID Connect, so the authorization flow can authenticate the Google account and confirm which account you authorized.</td>
+          </tr>
+          <tr>
+            <td><code>email</code> (<code>https://www.googleapis.com/auth/userinfo.email</code>)</td>
+            <td>Read the account email address so the app can display the correct account and use it as the IMAP/SMTP username.</td>
+          </tr>
+          <tr>
+            <td><code>profile</code> (<code>https://www.googleapis.com/auth/userinfo.profile</code>)</td>
+            <td>Read basic profile information such as the account name, to label the account in the app.</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>With those scopes, the app may access your email address and basic profile, email messages, headers, attachments, folders and labels, and addresses that already appear in message headers. OAuth access and refresh tokens are stored only on your PC (Windows DPAPI). Google user data stays on your device and is transmitted only directly between your PC and Google. The developer never receives this data.</p>
+      <p>MailClient does not request Google Drive, Calendar, People/Contacts, or other unrelated scopes. It does not download your address book through a contacts API.</p>
+      <p class="zh" lang="zh-CN">如果您在桌面应用中添加 Gmail 账号，MailClient 只会申请上述 Google OAuth 范围：用 <code>https://mail.google.com/</code> 通过 XOAUTH2 连接 Gmail IMAP/SMTP，以便在本机同步、展示、搜索、整理和发送您自己的邮件；用 <code>openid</code>、<code>email</code>、<code>profile</code> 识别并显示该 Google 账号。数据留在您的设备上，只在您的电脑与 Google 之间直接传输，开发者不会收到这些数据。</p>
+      <div class="note">
+        <p>MailClient does not use artificial intelligence or machine learning on Google user data, does not generate images, and does not use Google APIs to create or distribute AI-generated non-consensual intimate imagery (AI NCII).</p>
+        <p>The app complies with the <a href="https://developers.google.com/terms">Google APIs Terms of Service</a> and the <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>, including Limited Use.</p>
+        <p>MailClient's use and transfer of information received from Google APIs to any other app will adhere to Google API Services User Data Policy, including the Limited Use requirements.</p>
+        <p class="zh" lang="zh-CN">MailClient 不会对 Google 用户数据使用人工智能或机器学习，不会生成图像，也不会使用 Google API 创建或传播人工智能生成的非自愿亲密影像（AI NCII）。完整说明见 <a href="privacy.html">Privacy Policy / 隐私权政策</a>。</p>
       </div>
     </section>
 
     <section id="privacy" aria-labelledby="privacy-title">
-      <h2 id="privacy-title">隐私与数据</h2>
-      <p class="en-sub">Privacy &amp; data</p>
+      <h2 id="privacy-title">Privacy and data / 隐私与数据</h2>
       <ul>
-        <li><strong>不收集、不上报、不出售</strong>您的个人数据；应用<strong>没有</strong>遥测、分析或广告标识。</li>
-        <li>应用只会为完成您配置的邮件功能，直接连接 Google、Microsoft 或您设置的 IMAP/SMTP 服务器。</li>
-        <li>若使用 Google 账号登录，Google 用户数据仅用于在您的设备上收发与管理您自己的邮件，并遵守 Google API Services User Data Policy（含 Limited Use）。</li>
+        <li>MailClient <strong>does not collect, upload, or sell</strong> your personal data. There is <strong>no</strong> telemetry, analytics, or advertising identifier.</li>
+        <li>The app connects only to the mail providers you configure, and optionally to GitHub for update checks.</li>
+        <li>Credentials are encrypted with Windows DPAPI for the current Windows user. Transport to providers uses HTTPS/TLS.</li>
+        <li>You can remove an account in the app, uninstall and delete <code>%LocalAppData%\MailClient</code>, and revoke access at <a href="https://myaccount.google.com/permissions">Google Account permissions</a>.</li>
       </ul>
-      <p>完整说明见：<a href="privacy.html"><strong>MailClient 隐私权政策</strong></a>。</p>
+      <p>The full policy — including the data the app accesses, how each category is used, storage, sharing, retention, and contact information — is here: <a href="privacy.html"><strong>MailClient Privacy Policy / 隐私权政策</strong></a>.</p>
     </section>
 
     <section id="open-source" aria-labelledby="oss-title">
-      <h2 id="oss-title">开源与联系</h2>
-      <p class="en-sub">Open source &amp; contact</p>
-      <p>本项目开源。问题、建议与隐私相关联系请使用 GitHub Issues（请勿粘贴令牌、密码或完整邮件正文）。</p>
+      <h2 id="oss-title">Open source and contact / 开源与联系</h2>
+      <p>MailClient is open source. Questions, suggestions, and privacy inquiries should go to GitHub Issues. Please do not paste tokens, passwords, or full email bodies in an issue.</p>
+      <p class="zh" lang="zh-CN">本项目开源。问题、建议与隐私相关联系请使用 GitHub Issues。请勿粘贴令牌、密码或完整邮件正文。</p>
       <div class="links">
-        <a class="btn" href="https://github.com/Wind134/MailClient">仓库 / Repository</a>
+        <a class="btn" href="https://github.com/Wind134/MailClient">Repository</a>
         <a class="btn" href="https://github.com/Wind134/MailClient/issues">Issues</a>
         <a class="btn" href="https://github.com/Wind134/MailClient/releases">Releases</a>
-        <a class="btn" href="privacy.html">隐私权政策</a>
+        <a class="btn" href="privacy.html">Privacy Policy</a>
       </div>
     </section>
 
-    <footer>
-      <div>Maintained by <a href="https://github.com/Wind134">Wind134</a> · MailClient</div>
-      <div><a href="privacy.html">Privacy Policy</a> · Effective 2026-11-09</div>
+    <footer class="site">
+      <div>© 2026 Wind134 · MailClient</div>
+      <div>
+        <a href="privacy.html">Privacy Policy</a>
+        ·
+        <a href="https://github.com/Wind134/MailClient/issues">Contact (GitHub Issues)</a>
+      </div>
     </footer>
   </div>
 </body>
