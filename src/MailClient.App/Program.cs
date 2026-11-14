@@ -1,3 +1,4 @@
+using MailClient.Core.Tray;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.Windows.AppLifecycle;
@@ -26,6 +27,7 @@ public static class Program
         }
 
         var quitOnly = args.Any(a => string.Equals(a, QuitArgument, StringComparison.OrdinalIgnoreCase));
+        App.LaunchSilently = StartupLaunch.HasSilentArgument(args);
         if (DecideRedirection())
         {
             return;

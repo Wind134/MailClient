@@ -7,6 +7,7 @@
   "FirstRunPromptDismissed": false,
   "NotificationsEnabled": true,
   "KeepRunningInBackground": true,
+  "LaunchAtStartup": false,
   "LinkOpenMode": "System",
   "BodyCacheMaxAgeDays": 90,
   "BodyCacheMaxMb": 200

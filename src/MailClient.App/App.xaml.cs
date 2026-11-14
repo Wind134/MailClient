@@ -1,4 +1,4 @@
-﻿using MailClient.Auth;
+using MailClient.Auth;
 using MailClient.Core;
 using MailClient.Core.Tray;
 using MailClient.Core.Notifications;
@@ -38,9 +38,13 @@ public partial class App : Application
     private readonly Queue<ToastAction> _toastQueue = new();
     private bool _shellReady;
     private bool _backgroundLaunch;
+    private bool _silentLaunch;
     private bool _exiting;
     private (string Key, DateTime At)? _lastToast;
     private UpdateService? _updates;
+
+    /// <summary>命令行带 <c>--silent</c>（开机启动）时由 <see cref="Program"/> 在创建窗口前设上。</summary>
+    internal static bool LaunchSilently { get; set; }
 
     public App()
     {
@@ -90,6 +94,8 @@ public partial class App : Application
         _notifications.ActionInvoked += OnToastAction;
         WriteStartupBreadcrumb("onlaunched:begin");
         ToastAction? launchToast = null;
+        ExtendedActivationKind? activatedKind = null;
+        string? launchArguments = null;
         // GetActivatedEventArgs 也可能卡住：放到独立 STA 线程并限时，避免堵死 UI
         try
         {
@@ -120,6 +126,13 @@ public partial class App : Application
             else if (activated is not null)
             {
                 WriteStartupBreadcrumb("onlaunched:got-activated kind=" + activated.Kind);
+                activatedKind = activated.Kind;
+                if (activated.Kind == ExtendedActivationKind.Launch
+                    && activated.Data is Windows.ApplicationModel.Activation.ILaunchActivatedEventArgs launchArgs)
+                {
+                    launchArguments = launchArgs.Arguments;
+                }
+
                 if (activated.Kind == ExtendedActivationKind.AppNotification
                     && activated.Data is AppNotificationActivatedEventArgs toastArgs)
                 {
@@ -134,6 +147,11 @@ public partial class App : Application
 
         // 点的是“标为已读 / 删除”按钮而冷启动：不弹主窗口，做完就退出
         _backgroundLaunch = launchToast?.RunsInBackground == true;
+        // 开机启动：不弹主窗口，但留在托盘继续收信。通知按钮的后台路径优先（做完要退出）。
+        _silentLaunch = !_backgroundLaunch && (
+            LaunchSilently
+            || activatedKind == ExtendedActivationKind.StartupTask
+            || MailClient.Core.Tray.StartupLaunch.HasSilentArgument(launchArguments));
         if (launchToast is not null)
         {
             OnToastAction(launchToast);
@@ -155,6 +173,14 @@ public partial class App : Application
             settings = new AppSettingsStore(null);
         }
         _settingsStore = settings;
+        try
+        {
+            StartupRegistration.ReconcileUnpackaged(settings);
+        }
+        catch (Exception ex)
+        {
+            WriteStartupBreadcrumb("startup-reconcile-fail " + ex.GetType().Name + ": " + ex.Message);
+        }
         WriteStartupBreadcrumb("onlaunched:before-credentials");
         ICredentialStore credentials = new DpapiCredentialStore(credentialsPath);
         WriteStartupBreadcrumb("onlaunched:after-credentials");
@@ -202,7 +228,21 @@ public partial class App : Application
         _window = new MainWindow(shell) { AppSettings = settings, Notifications = _notifications, Storage = _storageMaintenance };
         WriteStartupBreadcrumb("onlaunched:after-mainwindow");
         WriteStartupBreadcrumb("onlaunched:window-created");
-        if (!_backgroundLaunch)
+        if (_silentLaunch)
+        {
+            try
+            {
+                _window.AppWindow.Hide();
+            }
+            catch (Exception ex)
+            {
+                WriteStartupBreadcrumb("onlaunched:silent-hide-fail " + ex.GetType().Name);
+            }
+
+            _window.PromptFirstRunWhenShown = true;
+            WriteStartupBreadcrumb("onlaunched:silent");
+        }
+        else if (!_backgroundLaunch)
         {
             _window.Activate();
             WriteStartupBreadcrumb("onlaunched:activated");
@@ -212,7 +252,7 @@ public partial class App : Application
         // 冷启动只处理后台通知按钮时不进托盘，做完就会 Exit
         if (!_backgroundLaunch)
         {
-            InstallTray(_window, settings);
+            InstallTray(_window, settings, forceVisible: _silentLaunch);
         }
 
         // 窗口起来后再登记通知，避免 Register 卡死启动
@@ -302,9 +342,9 @@ public partial class App : Application
             await ShutdownServicesAsync();
         };
 
-        if (_backgroundLaunch)
+        if (_backgroundLaunch || _silentLaunch)
         {
-            return; // 后台处理通知按钮：不弹欢迎提示
+            return; // 后台通知按钮做完即退出；开机静默启动则等用户打开窗口再提示
         }
 
         try
@@ -517,6 +557,13 @@ public partial class App : Application
             return;
         }
 
+        // 又一次开机静默启动打到已在跑的进程：保持隐藏，不要把窗口拽出来
+        if (IsSilentRequest(args))
+        {
+            WriteStartupBreadcrumb("redirected-silent");
+            return;
+        }
+
         // 若是点通知冷/热启动进来的，把动作也排进队列
         try
         {
@@ -548,6 +595,25 @@ public partial class App : Application
         });
     }
 
+    private static bool IsSilentRequest(AppActivationArguments args)
+    {
+        try
+        {
+            if (args.Kind == ExtendedActivationKind.StartupTask)
+            {
+                return true;
+            }
+
+            return args.Kind == ExtendedActivationKind.Launch
+                && args.Data is Windows.ApplicationModel.Activation.ILaunchActivatedEventArgs launch
+                && MailClient.Core.Tray.StartupLaunch.HasSilentArgument(launch.Arguments);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     private static bool IsQuitRequest(AppActivationArguments args)
     {
         try
@@ -562,7 +628,7 @@ public partial class App : Application
         }
     }
 
-    private void InstallTray(MainWindow window, AppSettingsStore settings)
+    private void InstallTray(MainWindow window, AppSettingsStore settings, bool forceVisible = false)
     {
         try
         {
@@ -577,8 +643,23 @@ public partial class App : Application
             });
             _tray.ExitRequested += () => window.DispatcherQueue.TryEnqueue(window.RequestQuit);
             window.HiddenToTray += () => OnHiddenToTray(window, settings);
+            window.ShownFromHidden += () => SyncTrayVisibility(settings, settings.GetKeepRunningInBackground());
             window.BackgroundSettingChanged += enabled => SyncTrayVisibility(settings, enabled);
-            SyncTrayVisibility(settings, settings.GetKeepRunningInBackground());
+            if (forceVisible)
+            {
+                try
+                {
+                    _tray.Show(ResolveAppIconPath(), "邮件");
+                }
+                catch (Exception ex)
+                {
+                    WriteStartupBreadcrumb("tray:show-fail " + ex.Message);
+                }
+            }
+            else
+            {
+                SyncTrayVisibility(settings, settings.GetKeepRunningInBackground());
+            }
             WriteStartupBreadcrumb("tray:installed");
         }
         catch (Exception ex)

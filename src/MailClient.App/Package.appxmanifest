@@ -9,12 +9,13 @@
   xmlns:systemai="http://schemas.microsoft.com/appx/manifest/systemai/windows10"
   xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
   xmlns:com="http://schemas.microsoft.com/appx/manifest/com/windows10"
-  IgnorableNamespaces="uap uap10 rescap systemai desktop com">
+  xmlns:uap5="http://schemas.microsoft.com/appx/manifest/uap/windows10/5"
+  IgnorableNamespaces="uap uap10 rescap systemai desktop com uap5">
 
   <Identity
     Name="49635C82-16E9-4745-B089-82337985CB02"
     Publisher="CN=AppPublisher"
-    Version="1.0.15.0" />
+    Version="1.0.16.0" />
 
   <mp:PhoneIdentity PhoneProductId="49635C82-16E9-4745-B089-82337985CB02" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 
@@ -53,6 +54,13 @@
         <desktop:Extension Category="windows.toastNotificationActivation">
           <desktop:ToastNotificationActivation ToastActivatorCLSID="7C2F5D1E-3A84-4B6F-9E21-5D0B8A6C4F17" />
         </desktop:Extension>
+        <uap5:Extension
+          Category="windows.startupTask"
+          Executable="MailClient.App.exe"
+          EntryPoint="Windows.FullTrustApplication"
+          uap10:Parameters="--silent">
+          <uap5:StartupTask TaskId="MailClientStartup" Enabled="false" DisplayName="邮件" />
+        </uap5:Extension>
         <com:Extension Category="windows.comServer">
           <com:ComServer>
             <com:ExeServer Executable="MailClient.App.exe" Arguments="----AppNotificationActivated:" DisplayName="邮件通知">

@@ -82,6 +82,21 @@ public static class AppRegistration
 
         TryDeleteTree(AumidPath);
         TryDeleteTree(UninstallPath);
+        RemoveStartupRun();
+    }
+
+    /// <summary>卸掉开机启动项（应用在「设置 → 常规」里登记的 HKCU Run）。没有这项也不算失败。</summary>
+    public static void RemoveStartupRun()
+    {
+        try
+        {
+            using var key = Registry.CurrentUser.OpenSubKey(SetupConstants.StartupRunSubKey, writable: true);
+            key?.DeleteValue(SetupConstants.StartupRunValueName, throwOnMissingValue: false);
+        }
+        catch (Exception)
+        {
+            // 清理尽力而为
+        }
     }
 
     private static void TryDeleteTree(string path)

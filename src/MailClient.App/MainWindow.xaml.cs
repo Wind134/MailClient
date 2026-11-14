@@ -1,4 +1,4 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Threading;
@@ -1406,11 +1406,19 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    /// <summary>开机静默启动时先不弹欢迎框，等窗口第一次被打开再提示。</summary>
+    public bool PromptFirstRunWhenShown { get; set; }
+
+    /// <summary>窗口从隐藏变为可见（托盘 / 开始菜单唤起）。</summary>
+    public event Action? ShownFromHidden;
+
     /// <summary>把窗口带到最前（从系统通知 / 托盘点进来时用）：若已隐藏或最小化则还原，并抢到前台。</summary>
     public void BringToFront()
     {
+        var wasHidden = false;
         try
         {
+            wasHidden = !AppWindow.IsVisible;
             if (AppWindow.Presenter is OverlappedPresenter presenter)
             {
                 if (presenter.State == OverlappedPresenterState.Minimized)
@@ -1430,6 +1438,26 @@ public sealed partial class MainWindow : Window
         catch
         {
             // 抢前台失败（系统限制）时窗口至少会在任务栏闪烁
+        }
+
+        if (!wasHidden)
+        {
+            return;
+        }
+
+        try
+        {
+            ShownFromHidden?.Invoke();
+        }
+        catch
+        {
+            // 托盘显隐失败不影响打开窗口
+        }
+
+        if (PromptFirstRunWhenShown)
+        {
+            PromptFirstRunWhenShown = false;
+            _ = ShowFirstRunPromptIfNeededAsync();
         }
     }
 

@@ -34,6 +34,15 @@ internal sealed class InAppBrowserWindow : Window
     public InAppBrowserWindow()
     {
         Title = "软件内置浏览器";
+        try
+        {
+            SystemBackdrop = new Microsoft.UI.Xaml.Media.DesktopAcrylicBackdrop();
+        }
+        catch
+        {
+            // 不支持系统背景时保持默认纯色
+        }
+
         Content = BuildContent();
         try
         {
