@@ -246,6 +246,7 @@ public sealed partial class MessageListViewModel : ObservableObject
                 rows.Add(row);
             }
 
+            var selectionLost = false;
             void apply()
             {
                 _suppressSelectionEvent = true;
@@ -260,45 +261,26 @@ public sealed partial class MessageListViewModel : ObservableObject
                     }
 
                     SelectedMessage = previousId is null ? null : Messages.FirstOrDefault(m => m.Id == previousId);
+                    selectionLost = previousId is not null && SelectedMessage is null;
                 }
                 finally
                 {
                     _suppressSelectionEvent = false;
                 }
+
+                // 这些属性也绑在界面上，必须和集合改动同在 UI 线程，否则加载新邮件时会闪退
+                HighlightTerms = terms;
+                IsEmpty = Messages.Count == 0;
+                Subtitle = searchError is not null
+                    ? $"搜索出错：{searchError}"
+                    : searching
+                        ? UiStrings.SearchSummary(Messages.Count, ScopeNames[(int)scope], Messages.Count >= filter.Limit)
+                        : IsEmpty ? string.Empty : UiStrings.UnreadCount(Messages.Count(m => m.IsUnread));
+                OnPropertyChanged(nameof(EmptyMessage));
             }
 
-            var ui = _ui ?? SynchronizationContext.Current;
-            if (!UiMarshal.ShouldPost(ui))
-            {
-                apply();
-            }
-            else
-            {
-                var done = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-                ui!.Post(_ =>
-                {
-                    try
-                    {
-                        apply();
-                        done.SetResult();
-                    }
-                    catch (Exception ex)
-                    {
-                        done.SetException(ex);
-                    }
-                }, null);
-                await done.Task.ConfigureAwait(false);
-            }
-
-            HighlightTerms = terms;
-            IsEmpty = Messages.Count == 0;
-            Subtitle = searchError is not null
-                ? $"搜索出错：{searchError}"
-                : searching
-                    ? UiStrings.SearchSummary(Messages.Count, ScopeNames[(int)scope], Messages.Count >= filter.Limit)
-                    : IsEmpty ? string.Empty : UiStrings.UnreadCount(Messages.Count(m => m.IsUnread));
-            OnPropertyChanged(nameof(EmptyMessage));
-            if (previousId is not null && SelectedMessage is null)
+            await UiMarshal.RunAsync(_ui ?? SynchronizationContext.Current, apply);
+            if (selectionLost)
             {
                 SelectionChangedExternally?.Invoke(this, EventArgs.Empty);
             }
@@ -340,65 +322,68 @@ public sealed partial class MessageListViewModel : ObservableObject
 
             var selectedId = SelectedMessage?.Id;
             var selectionLost = false;
-            _suppressSelectionEvent = true;
-            try
+            await UiMarshal.RunAsync(_ui ?? SynchronizationContext.Current, () =>
             {
-                var fresh = entities.ToDictionary(e => e.Id);
-                for (var i = Messages.Count - 1; i >= 0; i--)
+                _suppressSelectionEvent = true;
+                try
                 {
-                    if (!fresh.ContainsKey(Messages[i].Id))
+                    var fresh = entities.ToDictionary(e => e.Id);
+                    for (var i = Messages.Count - 1; i >= 0; i--)
                     {
-                        selectionLost |= Messages[i].Id == selectedId;
-                        Messages.RemoveAt(i);
-                    }
-                }
-
-                var now = _clock();
-                for (var target = 0; target < entities.Count; target++)
-                {
-                    var entity = entities[target];
-                    if (target < Messages.Count && Messages[target].Id == entity.Id)
-                    {
-                        Messages[target].IsUnread = !entity.IsRead;
-                        Messages[target].IsFlagged = entity.IsFlagged;
-                        continue;
-                    }
-
-                    var existing = -1;
-                    for (var j = target + 1; j < Messages.Count; j++)
-                    {
-                        if (Messages[j].Id == entity.Id)
+                        if (!fresh.ContainsKey(Messages[i].Id))
                         {
-                            existing = j;
-                            break;
+                            selectionLost |= Messages[i].Id == selectedId;
+                            Messages.RemoveAt(i);
                         }
                     }
 
-                    if (existing >= 0)
+                    var now = _clock();
+                    for (var target = 0; target < entities.Count; target++)
                     {
-                        Messages.Move(existing, target);
-                        Messages[target].IsUnread = !entity.IsRead;
-                        Messages[target].IsFlagged = entity.IsFlagged;
+                        var entity = entities[target];
+                        if (target < Messages.Count && Messages[target].Id == entity.Id)
+                        {
+                            Messages[target].IsUnread = !entity.IsRead;
+                            Messages[target].IsFlagged = entity.IsFlagged;
+                            continue;
+                        }
+
+                        var existing = -1;
+                        for (var j = target + 1; j < Messages.Count; j++)
+                        {
+                            if (Messages[j].Id == entity.Id)
+                            {
+                                existing = j;
+                                break;
+                            }
+                        }
+
+                        if (existing >= 0)
+                        {
+                            Messages.Move(existing, target);
+                            Messages[target].IsUnread = !entity.IsRead;
+                            Messages[target].IsFlagged = entity.IsFlagged;
+                        }
+                        else
+                        {
+                            Messages.Insert(target, new MessageRowViewModel(entity, now));
+                        }
                     }
-                    else
+
+                    if (selectionLost)
                     {
-                        Messages.Insert(target, new MessageRowViewModel(entity, now));
+                        SelectedMessage = null;
                     }
                 }
-
-                if (selectionLost)
+                finally
                 {
-                    SelectedMessage = null;
+                    _suppressSelectionEvent = false;
                 }
-            }
-            finally
-            {
-                _suppressSelectionEvent = false;
-            }
 
-            IsEmpty = Messages.Count == 0;
-            Subtitle = IsEmpty ? string.Empty : UiStrings.UnreadCount(Messages.Count(m => m.IsUnread));
-            OnPropertyChanged(nameof(EmptyMessage));
+                IsEmpty = Messages.Count == 0;
+                Subtitle = IsEmpty ? string.Empty : UiStrings.UnreadCount(Messages.Count(m => m.IsUnread));
+                OnPropertyChanged(nameof(EmptyMessage));
+            });
             if (selectionLost)
             {
                 SelectionChangedExternally?.Invoke(this, EventArgs.Empty);

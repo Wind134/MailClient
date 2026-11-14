@@ -57,6 +57,7 @@ public sealed partial class MainWindow : Window
             SynchronizationContext.SetSynchronizationContext(uiCtx);
             ViewModel.AttachSynchronizationContext(uiCtx);
             ViewModel.List.AttachSynchronizationContext(uiCtx);
+            ViewModel.Reading.AttachSynchronizationContext(uiCtx);
             var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MailClient");
             Directory.CreateDirectory(dir);
             MailClient.Core.Logging.RotatingLog.Append(Path.Combine(dir, "startup.log"), DateTimeOffset.Now.ToString("O") + " mainwindow:ui-marshal-attached\n");
@@ -1191,8 +1192,16 @@ public sealed partial class MainWindow : Window
             var windowsLink = new HyperlinkButton
             {
                 Content = "打开 Windows 通知设置",
-                Padding = new Thickness(0),
-                NavigateUri = new Uri("ms-settings:notifications")
+                Padding = new Thickness(0)
+            };
+            windowsLink.Click += async (_, _) =>
+            {
+                if (await WindowsSettings.OpenAsync("notifications"))
+                {
+                    return;
+                }
+
+                windowsStatus.Text = "打不开 Windows 的通知设置。请手动打开：设置 → 系统 → 通知。";
             };
 
             var notifPanel = new StackPanel { Spacing = 10, Padding = new Thickness(0, 8, 0, 8) };

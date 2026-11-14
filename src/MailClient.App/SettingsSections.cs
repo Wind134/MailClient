@@ -179,10 +179,23 @@ internal static class SettingsSections
         var link = new HyperlinkButton
         {
             Content = "打开 Windows 启动应用设置",
-            Padding = new Thickness(0),
-            NavigateUri = new Uri("ms-settings:startupapps")
+            Padding = new Thickness(0)
         };
         Id(link, "OpenStartupSettingsLink", "打开 Windows 启动应用设置");
+        link.Click += async (_, _) =>
+        {
+            if (await WindowsSettings.OpenAsync("startupapps"))
+            {
+                return;
+            }
+
+            Post(() =>
+            {
+                status.Text = "打不开 Windows 的「启动应用」设置。请手动打开：设置 → 应用 → 启动。";
+                status.Visibility = Visibility.Visible;
+                status.Foreground = (Brush)Application.Current.Resources["SystemFillColorCriticalBrush"];
+            });
+        };
 
         var section = new StackPanel { Spacing = 10 };
         section.Children.Add(new Border

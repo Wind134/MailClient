@@ -25,7 +25,12 @@ public sealed partial class ShellViewModel : ObservableObject
 
     /// <summary>在 UI 线程就绪后注入（WinUI 构造 Shell 时 SynchronizationContext 往往还是 null）。</summary>
     public void AttachSynchronizationContext(SynchronizationContext? context = null)
-        => _ui = context ?? SynchronizationContext.Current ?? _ui;
+    {
+        _ui = context ?? SynchronizationContext.Current ?? _ui;
+        Tree.AttachSynchronizationContext(_ui);
+        List.AttachSynchronizationContext(_ui);
+        Reading.AttachSynchronizationContext(_ui);
+    }
     private int _syncRunning;
     private Guid? _selectInboxOfAccount;
 
@@ -92,7 +97,9 @@ public sealed partial class ShellViewModel : ObservableObject
         Reading.EditDraftRequested += (_, id) => { _ = OpenDraftAsync(id); };
         Reading.DeleteDraftRequested += (_, id) => { _ = DeleteLocalDraftAsync(id); };
         database.DraftsChanged += (_, _) => Post(() => _ = OnDraftsChangedAsync());
-        Actions.Mutated += async (_, e) => await OnMutatedAsync(e);
+        // 已读 / 星标在数据库写完后于线程池上触发。x:Bind 会在 PropertyChanged 里直接改 Visibility，
+        // 后台线程改会抛 0x8001010E（RPC_E_WRONG_THREAD），async void 接不住，进程直接退出。
+        Actions.Mutated += (_, e) => Post(() => _ = OnMutatedAsync(e));
         Actions.Notice += (_, n) => Post(() => ShowStatus(n.Message, n.IsError));
         Reading.ComposeRequested += (_, r) => ComposeRequested?.Invoke(this, r);
         database.OutboxChanged += (_, _) => Post(() => _ = OnOutboxChangedAsync());
@@ -699,17 +706,7 @@ public sealed partial class ShellViewModel : ObservableObject
         IsStatusOpen = true;
     }
 
-    private void Post(Action action)
-    {
-        if (!UiMarshal.ShouldPost(_ui))
-        {
-            action();
-        }
-        else
-        {
-            _ui!.Post(_ => action(), null);
-        }
-    }
+    private void Post(Action action) => UiMarshal.Post(_ui, action);
 
     [RelayCommand]
     private void DismissStatus() => IsStatusOpen = false;
