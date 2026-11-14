@@ -889,13 +889,13 @@ public sealed partial class AddAccountViewModel : ObservableObject
 
     private void Post(Action action)
     {
-        if (_ui is null || ReferenceEquals(SynchronizationContext.Current, _ui))
+        if (!UiMarshal.ShouldPost(_ui))
         {
             action();
         }
         else
         {
-            _ui.Post(_ => action(), null);
+            _ui!.Post(_ => action(), null);
         }
     }
 

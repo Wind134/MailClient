@@ -152,12 +152,10 @@ public sealed partial class MainWindow : Window
             {
                 // 同一集合：属性变化时只同步标题；条目已由 CollectionChanged 维护
                 SyncListHeaderTexts();
-                LogWire(reason, messages, ok: true, detail: "same-col");
             }
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            LogWire(reason, ViewModel.List.Messages, ok: false, detail: ex.ToString());
             try { SyncListHeaderTexts(); } catch { }
         }
     }
@@ -213,9 +211,8 @@ public sealed partial class MainWindow : Window
 
                 SyncListHeaderTexts();
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                LogWire("col:" + e.Action, ViewModel.List.Messages, ok: false, detail: ex.ToString());
                 RebuildMessageListItems("col-fallback");
             }
         }
@@ -253,11 +250,9 @@ public sealed partial class MainWindow : Window
             }
 
             SyncListHeaderTexts();
-            LogWire(reason, messages, ok: true, detail: "items");
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            LogWire(reason, ViewModel.List.Messages, ok: false, detail: ex.ToString());
             try { SyncListHeaderTexts(); } catch { }
         }
         finally
@@ -277,20 +272,6 @@ public sealed partial class MainWindow : Window
         {
             ListSubtitleText.Text = ViewModel.List.Subtitle ?? string.Empty;
         }
-    }
-
-    private static void LogWire(string reason, ObservableCollection<MessageRowViewModel> messages, bool ok, string detail)
-    {
-        try
-        {
-            var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MailClient");
-            Directory.CreateDirectory(dir);
-            MailClient.Core.Logging.RotatingLog.Append(
-                Path.Combine(dir, "list-debug.log"),
-                string.Format("{0:O} wire {1} src={2} vm={3} detail={4}\n",
-                    DateTimeOffset.Now, ok ? "ok" : "FAIL", reason, messages.Count, detail));
-        }
-        catch { }
     }
 
     public ShellViewModel ViewModel { get; }

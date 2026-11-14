@@ -162,7 +162,7 @@ public sealed partial class MessageListViewModel : ObservableObject
         var cts = _searchDebounce = new CancellationTokenSource();
         try
         {
-            await Task.Delay(SearchDelay, cts.Token);
+            await Task.Delay(SearchDelay, cts.Token).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -181,14 +181,6 @@ public sealed partial class MessageListViewModel : ObservableObject
         Title = node.Title;
         ShowCategoryTabs = node.ShowsCategories;
         SearchText = string.Empty;
-        try
-        {
-            var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MailClient");
-            Directory.CreateDirectory(dir);
-            MailClient.Core.Logging.RotatingLog.Append(Path.Combine(dir, "list-debug.log"),
-                $"{DateTimeOffset.Now:O} ShowAsync title={Title} kind={node.Kind} showsCat={node.ShowsCategories} provider={node.ProviderId} folders={folderIds?.Count ?? -1}\n");
-        }
-        catch { }
         await ReloadAsync();
     }
 
@@ -273,26 +265,17 @@ public sealed partial class MessageListViewModel : ObservableObject
                 {
                     _suppressSelectionEvent = false;
                 }
-
-                try
-                {
-                    var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MailClient");
-                    Directory.CreateDirectory(dir);
-                    MailClient.Core.Logging.RotatingLog.Append(Path.Combine(dir, "list-debug.log"),
-                        $"{DateTimeOffset.Now:O} apply tid={Environment.CurrentManagedThreadId} uiType={(_ui ?? SynchronizationContext.Current)?.GetType().Name ?? "null"} curType={SynchronizationContext.Current?.GetType().Name ?? "null"} msgs={Messages.Count}\n");
-                }
-                catch { /* ignore */ }
             }
 
             var ui = _ui ?? SynchronizationContext.Current;
-            if (ui is null || ReferenceEquals(SynchronizationContext.Current, ui))
+            if (!UiMarshal.ShouldPost(ui))
             {
                 apply();
             }
             else
             {
                 var done = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-                ui.Post(_ =>
+                ui!.Post(_ =>
                 {
                     try
                     {
@@ -304,18 +287,8 @@ public sealed partial class MessageListViewModel : ObservableObject
                         done.SetException(ex);
                     }
                 }, null);
-                await done.Task;
+                await done.Task.ConfigureAwait(false);
             }
-
-            try
-            {
-                var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MailClient");
-                Directory.CreateDirectory(dir);
-                var cat = ShowCategoryTabs ? SelectedCategory.ToString() : "(none)";
-                MailClient.Core.Logging.RotatingLog.Append(Path.Combine(dir, "list-debug.log"),
-                    $"{DateTimeOffset.Now:O} title={Title} node={_node?.Kind} folders={_folderIds?.Count ?? -1} cat={cat} rows={rows.Count} empty={rows.Count == 0}\n");
-            }
-            catch { /* ignore */ }
 
             HighlightTerms = terms;
             IsEmpty = Messages.Count == 0;

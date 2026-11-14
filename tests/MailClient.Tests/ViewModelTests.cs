@@ -91,6 +91,7 @@ public class ViewModelTests
         var (shell, tmp) = await StartShellAsync();
         await using var _ = tmp;
 
+        shell.List.SearchDelay = TimeSpan.Zero;
         shell.List.SearchText = "项目";
         await WaitUntilAsync(() => shell.List.Messages.Count > 0 && shell.List.Messages.All(m =>
             m.Subject.Contains("项目") || m.Preview.Contains("项目") || m.Sender.Contains("项目")));

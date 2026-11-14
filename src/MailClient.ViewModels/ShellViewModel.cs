@@ -319,15 +319,6 @@ public sealed partial class ShellViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            try
-            {
-                var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MailClient");
-                Directory.CreateDirectory(dir);
-                MailClient.Core.Logging.RotatingLog.Append(Path.Combine(dir, "list-debug.log"),
-                    $"{DateTimeOffset.Now:O} ShowNodeSafe FAIL kind={node.Kind} title={node.Title} {ex}\n");
-            }
-            catch { }
-
             ShowStatus($"无法打开文件夹：{ex.Message}", true);
         }
     }
@@ -710,13 +701,13 @@ public sealed partial class ShellViewModel : ObservableObject
 
     private void Post(Action action)
     {
-        if (_ui is null || ReferenceEquals(SynchronizationContext.Current, _ui))
+        if (!UiMarshal.ShouldPost(_ui))
         {
             action();
         }
         else
         {
-            _ui.Post(_ => action(), null);
+            _ui!.Post(_ => action(), null);
         }
     }
 

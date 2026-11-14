@@ -191,7 +191,7 @@ public sealed partial class ReadingPaneViewModel : ObservableObject
             return;
         }
 
-        var entity = await _database.GetMessageAsync(messageId);
+        var entity = await _database.GetMessageAsync(messageId).ConfigureAwait(false);
         if (entity is null || version != _loadVersion)
         {
             if (entity is null)
@@ -202,8 +202,8 @@ public sealed partial class ReadingPaneViewModel : ObservableObject
             return;
         }
 
-        var recipients = await _database.ListRecipientsAsync(messageId);
-        var attachments = await _database.ListAttachmentsAsync(messageId);
+        var recipients = await _database.ListRecipientsAsync(messageId).ConfigureAwait(false);
+        var attachments = await _database.ListAttachmentsAsync(messageId).ConfigureAwait(false);
         if (version != _loadVersion)
         {
             return;
@@ -465,7 +465,7 @@ public sealed partial class ReadingPaneViewModel : ObservableObject
         {
             if (MarkReadDelay > TimeSpan.Zero)
             {
-                await Task.Delay(MarkReadDelay);
+                await Task.Delay(MarkReadDelay).ConfigureAwait(false);
             }
 
             // 期间切换了邮件 / 已手动标记过：不再自动标已读
@@ -474,7 +474,7 @@ public sealed partial class ReadingPaneViewModel : ObservableObject
                 return;
             }
 
-            await _actions.SetReadAsync(messageId, true);
+            await _actions.SetReadAsync(messageId, true).ConfigureAwait(false);
         }
         catch (Exception)
         {
