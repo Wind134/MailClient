@@ -62,6 +62,14 @@ Gmail 通过 Google OAuth 2.0 已安装应用流程（回环重定向 + PKCE + �
 - Core：`GmailAccountConfig`；Auth：`GmailTokenAcquirer` / `Pkce` / `LoopbackAuthorizationListener`；Providers：`GmailProvider`（`gmail.oauth`）
 - 联调测试需设置 `MAILCLIENT_GMAIL_CLIENT_ID` / `MAILCLIENT_GMAIL_EMAIL`（未设置时自动跳过）；切勿提交真实 ClientId/ClientSecret
 
+## 隐私
+
+本应用为本地桌面客户端，不收集、不上报用户数据。
+
+- 项目首页：<https://wind134.github.io/MailClient/>
+- 隐私权政策（网页）：<https://wind134.github.io/MailClient/privacy.html>
+- 仓库内 Markdown 原文：[`PRIVACY.md`](PRIVACY.md)
+
 ## 添加账号
 
 左侧窗格的“添加账号”向导支持 Gmail、Outlook、QQ、163/126 和其他 IMAP/SMTP；密码保存在 DPAPI 加密的凭据文件里，添加后自动开始同步。详见 [docs/add-account.md](docs/add-account.md)。

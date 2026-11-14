@@ -21,13 +21,8 @@ jobs:
         with:
           dotnet-version: 8.0.x
 
-      # NuGet.config 里有一个仅本机使用、不入库的 local-nuget 离线源；CI 上建个空目录让还原跳过它，其余走 nuget.org。
-      - name: Prepare NuGet sources
-        shell: pwsh
-        run: New-Item -ItemType Directory -Force local-nuget | Out-Null
-
       - name: Check tag matches version
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
         shell: pwsh
         run: |
           [xml]$p = Get-Content Directory.Build.props -Raw -Encoding UTF8
@@ -49,7 +44,7 @@ jobs:
       # 应用内「检查更新」依赖这两样：发布说明（Release 正文，更新对话框里显示）和 SHA256SUMS.txt（下载后校验安装包）。
       # 缺任何一样都直接让流水线失败，而不是发布一个半成品 Release。
       - name: Verify update metadata (SHA256SUMS.txt + release notes)
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
         shell: pwsh
         run: |
           $notes = Get-ChildItem docs -Filter "release-$($env:VERSION)*.md" -ErrorAction SilentlyContinue | Select-Object -First 1
@@ -71,8 +66,9 @@ jobs:
           path: artifacts/release/*
           if-no-files-found: error
 
+      # 即使手动选择标签运行，也只上传 Actions 产物；只有标签 push 才允许发布。
       - name: Create GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
