@@ -89,8 +89,8 @@ public sealed partial class ShellViewModel : ObservableObject
                 Reading.HighlightTerms = List.HighlightTerms.All;
             }
         };
-        Reading.EditDraftRequested += async (_, id) => await OpenDraftAsync(id);
-        Reading.DeleteDraftRequested += async (_, id) => await DeleteLocalDraftAsync(id);
+        Reading.EditDraftRequested += (_, id) => { _ = OpenDraftAsync(id); };
+        Reading.DeleteDraftRequested += (_, id) => { _ = DeleteLocalDraftAsync(id); };
         database.DraftsChanged += (_, _) => Post(() => _ = OnDraftsChangedAsync());
         Actions.Mutated += async (_, e) => await OnMutatedAsync(e);
         Actions.Notice += (_, n) => Post(() => ShowStatus(n.Message, n.IsError));
@@ -740,7 +740,7 @@ public sealed partial class ShellViewModel : ObservableObject
                 return;
             }
 
-            draftId = await _database.FindDraftIdBySourceAsync(messageId);
+            draftId = await _database.FindDraftIdBySourceAsync(messageId).ConfigureAwait(false);
         }
 
         if (draftId is not null)
@@ -750,12 +750,12 @@ public sealed partial class ShellViewModel : ObservableObject
                 return;
             }
 
-            var draft = _draftStore is null ? null : await _draftStore.GetAsync(draftId);
+            var draft = _draftStore is null ? null : await _draftStore.GetAsync(draftId).ConfigureAwait(false);
             if (draft is null)
             {
                 ShowStatus(UiStrings.DraftGone, true);
-                await Tree.RefreshCountsAsync();
-                await List.ReloadAsync();
+                await Tree.RefreshCountsAsync().ConfigureAwait(false);
+                await List.ReloadAsync().ConfigureAwait(false);
                 return;
             }
 
@@ -763,14 +763,14 @@ public sealed partial class ShellViewModel : ObservableObject
             return;
         }
 
-        var message = await _database.GetMessageAsync(messageId);
+        var message = await _database.GetMessageAsync(messageId).ConfigureAwait(false);
         if (message is null)
         {
             ShowStatus(UiStrings.DraftGone, true);
             return;
         }
 
-        var recipients = await _database.ListRecipientsAsync(messageId);
+        var recipients = await _database.ListRecipientsAsync(messageId).ConfigureAwait(false);
         ComposeRequested?.Invoke(this, ComposeRequest.FromServerDraft(message, recipients, Guid.NewGuid().ToString("N")));
     }
 
