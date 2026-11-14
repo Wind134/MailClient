@@ -25,7 +25,12 @@ public sealed partial class ShellViewModel : ObservableObject
 
     /// <summary>在 UI 线程就绪后注入（WinUI 构造 Shell 时 SynchronizationContext 往往还是 null）。</summary>
     public void AttachSynchronizationContext(SynchronizationContext? context = null)
-        => _ui = context ?? SynchronizationContext.Current ?? _ui;
+    {
+        _ui = context ?? SynchronizationContext.Current ?? _ui;
+        Tree.AttachSynchronizationContext(_ui);
+        List.AttachSynchronizationContext(_ui);
+        Reading.AttachSynchronizationContext(_ui);
+    }
     private int _syncRunning;
     private Guid? _selectInboxOfAccount;
 
@@ -89,10 +94,12 @@ public sealed partial class ShellViewModel : ObservableObject
                 Reading.HighlightTerms = List.HighlightTerms.All;
             }
         };
-        Reading.EditDraftRequested += async (_, id) => await OpenDraftAsync(id);
-        Reading.DeleteDraftRequested += async (_, id) => await DeleteLocalDraftAsync(id);
+        Reading.EditDraftRequested += (_, id) => { _ = OpenDraftAsync(id); };
+        Reading.DeleteDraftRequested += (_, id) => { _ = DeleteLocalDraftAsync(id); };
         database.DraftsChanged += (_, _) => Post(() => _ = OnDraftsChangedAsync());
-        Actions.Mutated += async (_, e) => await OnMutatedAsync(e);
+        // 已读 / 星标在数据库写完后于线程池上触发。x:Bind 会在 PropertyChanged 里直接改 Visibility，
+        // 后台线程改会抛 0x8001010E（RPC_E_WRONG_THREAD），async void 接不住，进程直接退出。
+        Actions.Mutated += (_, e) => Post(() => _ = OnMutatedAsync(e));
         Actions.Notice += (_, n) => Post(() => ShowStatus(n.Message, n.IsError));
         Reading.ComposeRequested += (_, r) => ComposeRequested?.Invoke(this, r);
         database.OutboxChanged += (_, _) => Post(() => _ = OnOutboxChangedAsync());
@@ -319,15 +326,6 @@ public sealed partial class ShellViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            try
-            {
-                var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MailClient");
-                Directory.CreateDirectory(dir);
-                MailClient.Core.Logging.RotatingLog.Append(Path.Combine(dir, "list-debug.log"),
-                    $"{DateTimeOffset.Now:O} ShowNodeSafe FAIL kind={node.Kind} title={node.Title} {ex}\n");
-            }
-            catch { }
-
             ShowStatus($"无法打开文件夹：{ex.Message}", true);
         }
     }
@@ -708,17 +706,7 @@ public sealed partial class ShellViewModel : ObservableObject
         IsStatusOpen = true;
     }
 
-    private void Post(Action action)
-    {
-        if (_ui is null || ReferenceEquals(SynchronizationContext.Current, _ui))
-        {
-            action();
-        }
-        else
-        {
-            _ui.Post(_ => action(), null);
-        }
-    }
+    private void Post(Action action) => UiMarshal.Post(_ui, action);
 
     [RelayCommand]
     private void DismissStatus() => IsStatusOpen = false;
@@ -749,7 +737,7 @@ public sealed partial class ShellViewModel : ObservableObject
                 return;
             }
 
-            draftId = await _database.FindDraftIdBySourceAsync(messageId);
+            draftId = await _database.FindDraftIdBySourceAsync(messageId).ConfigureAwait(false);
         }
 
         if (draftId is not null)
@@ -759,12 +747,12 @@ public sealed partial class ShellViewModel : ObservableObject
                 return;
             }
 
-            var draft = _draftStore is null ? null : await _draftStore.GetAsync(draftId);
+            var draft = _draftStore is null ? null : await _draftStore.GetAsync(draftId).ConfigureAwait(false);
             if (draft is null)
             {
                 ShowStatus(UiStrings.DraftGone, true);
-                await Tree.RefreshCountsAsync();
-                await List.ReloadAsync();
+                await Tree.RefreshCountsAsync().ConfigureAwait(false);
+                await List.ReloadAsync().ConfigureAwait(false);
                 return;
             }
 
@@ -772,14 +760,14 @@ public sealed partial class ShellViewModel : ObservableObject
             return;
         }
 
-        var message = await _database.GetMessageAsync(messageId);
+        var message = await _database.GetMessageAsync(messageId).ConfigureAwait(false);
         if (message is null)
         {
             ShowStatus(UiStrings.DraftGone, true);
             return;
         }
 
-        var recipients = await _database.ListRecipientsAsync(messageId);
+        var recipients = await _database.ListRecipientsAsync(messageId).ConfigureAwait(false);
         ComposeRequested?.Invoke(this, ComposeRequest.FromServerDraft(message, recipients, Guid.NewGuid().ToString("N")));
     }
 

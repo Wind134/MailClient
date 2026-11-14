@@ -11,8 +11,13 @@ public sealed partial class MailboxTreeViewModel : ObservableObject
 {
     private readonly MailDatabase _database;
     private IReadOnlyList<FolderEntity> _allFolders = Array.Empty<FolderEntity>();
+    private SynchronizationContext? _ui = SynchronizationContext.Current;
 
     public MailboxTreeViewModel(MailDatabase database) => _database = database;
+
+    /// <summary>未读角标绑在 NavigationView 上，计数刷新必须回到 UI 线程。</summary>
+    public void AttachSynchronizationContext(SynchronizationContext? context = null)
+        => _ui = context ?? SynchronizationContext.Current ?? _ui;
 
     public ObservableCollection<MailboxNodeViewModel> Favorites { get; } = new();
     public ObservableCollection<MailboxNodeViewModel> Accounts { get; } = new();
@@ -173,39 +178,42 @@ public sealed partial class MailboxTreeViewModel : ObservableObject
     /// <summary>只刷新各节点上的数字（不重建树，避免丢失展开/选中状态）。</summary>
     public async Task RefreshCountsAsync(CancellationToken cancellationToken = default)
     {
-        _allFolders = await _database.ListAllFoldersAsync(cancellationToken);
+        _allFolders = await _database.ListAllFoldersAsync(cancellationToken).ConfigureAwait(false);
         var byId = _allFolders.ToDictionary(f => f.Id);
-
-        foreach (var account in Accounts)
+        var folders = _allFolders;
+        await UiMarshal.RunAsync(_ui, () =>
         {
-            foreach (var child in account.Children)
+            foreach (var account in Accounts)
             {
-                if (child.FolderId is not null && byId.TryGetValue(child.FolderId, out var folder))
+                foreach (var child in account.Children)
                 {
-                    child.UnreadCount = folder.Special == SpecialFolder.Drafts ? folder.TotalCount : folder.UnreadCount;
+                    if (child.FolderId is not null && byId.TryGetValue(child.FolderId, out var folder))
+                    {
+                        child.UnreadCount = folder.Special == SpecialFolder.Drafts ? folder.TotalCount : folder.UnreadCount;
+                    }
+                }
+
+                account.UnreadCount = account.Children.FirstOrDefault(c => c.Special == SpecialFolder.Inbox)?.UnreadCount ?? 0;
+            }
+
+            foreach (var fav in Favorites)
+            {
+                if (fav.Kind == MailboxNodeKind.AllInboxes)
+                {
+                    fav.UnreadCount = folders.Where(f => f.Special == SpecialFolder.Inbox).Sum(f => f.UnreadCount);
+                }
+                else if (fav.Kind == MailboxNodeKind.Drafts)
+                {
+                    fav.UnreadCount = DraftTotal();
+                }
+                else if (fav.Kind == MailboxNodeKind.Unread)
+                {
+                    fav.UnreadCount = folders.Sum(f => f.Special is SpecialFolder.Inbox or SpecialFolder.Custom or SpecialFolder.Archive ? f.UnreadCount : 0);
                 }
             }
 
-            account.UnreadCount = account.Children.FirstOrDefault(c => c.Special == SpecialFolder.Inbox)?.UnreadCount ?? 0;
-        }
-
-        foreach (var fav in Favorites)
-        {
-            if (fav.Kind == MailboxNodeKind.AllInboxes)
-            {
-                fav.UnreadCount = _allFolders.Where(f => f.Special == SpecialFolder.Inbox).Sum(f => f.UnreadCount);
-            }
-            else if (fav.Kind == MailboxNodeKind.Drafts)
-            {
-                fav.UnreadCount = DraftTotal();
-            }
-            else if (fav.Kind == MailboxNodeKind.Unread)
-            {
-                fav.UnreadCount = _allFolders.Sum(f => f.Special is SpecialFolder.Inbox or SpecialFolder.Custom or SpecialFolder.Archive ? f.UnreadCount : 0);
-            }
-        }
-
-        UpdateBadgeVisibility();
+            UpdateBadgeVisibility();
+        }).ConfigureAwait(false);
     }
 
     /// <summary>把节点转成数据库过滤条件的文件夹范围；null 表示全部文件夹。</summary>

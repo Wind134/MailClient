@@ -1,7 +1,8 @@
-﻿using MailClient.Core;
+using MailClient.Core;
 using MailClient.Core.Links;
 using MailClient.Core.Retention;
 using MailClient.Storage.Services;
+using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
@@ -57,12 +58,190 @@ internal static class SettingsSections
         panel.Children.Add(toggle);
         panel.Children.Add(Caption("开启后，点窗口右上角关闭只会把「邮件」藏到通知区域（托盘），收信、IDLE 和 Windows 通知都会继续。左键单击托盘图标可重新打开；右键菜单有「打开」「同步全部」「退出」。要真正退出请用托盘菜单里的「退出」。"));
         panel.Children.Add(Caption("再次从开始菜单启动时，如果软件已在后台运行，会直接唤起现有窗口，不会开第二个进程。"));
+        panel.Children.Add(BuildStartup(settings));
         if (updates is not null)
         {
             panel.Children.Add(BuildUpdates(settings, updates, showUpdate));
         }
 
         return panel;
+    }
+
+    /// <summary>「启动」小节：登录 Windows 时静默启动。</summary>
+    private static UIElement BuildStartup(AppSettingsStore settings)
+    {
+        var queue = DispatcherQueue.GetForCurrentThread();
+        var initial = settings.Snapshot().LaunchAtStartup;
+        if (!AppIdentity.IsPackaged)
+        {
+            var read = StartupRegistration.ReadUnpackaged();
+            if (!read.IsError)
+            {
+                initial = read.Enabled;
+            }
+        }
+
+        var toggle = new ToggleSwitch
+        {
+            Header = "开机时自动启动",
+            OnContent = "开：登录后在后台启动，不弹出主窗口",
+            OffContent = "关：登录后不自动启动",
+            IsOn = initial
+        };
+        Id(toggle, "LaunchAtStartupToggle", "开机时自动启动");
+
+        var status = new TextBlock
+        {
+            TextWrapping = TextWrapping.Wrap,
+            Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"],
+            Foreground = Secondary,
+            Visibility = Visibility.Collapsed
+        };
+        Id(status, "LaunchAtStartupStatus");
+
+        var suppress = 0;
+        void SetOn(bool on)
+        {
+            if (toggle.IsOn == on)
+            {
+                return;
+            }
+
+            suppress++;
+            toggle.IsOn = on;
+            suppress--;
+        }
+
+        void Show(StartupRegistration.Result result, bool persist)
+        {
+            SetOn(result.Enabled);
+            toggle.IsEnabled = result.CanChange;
+            status.Text = result.Message ?? string.Empty;
+            status.Visibility = string.IsNullOrEmpty(result.Message) ? Visibility.Collapsed : Visibility.Visible;
+            status.Foreground = result.IsError
+                ? (Brush)Application.Current.Resources["SystemFillColorCriticalBrush"]
+                : Secondary;
+            if (persist && !result.IsError && settings.Snapshot().LaunchAtStartup != result.Enabled)
+            {
+                settings.Update(s => s.LaunchAtStartup = result.Enabled);
+            }
+        }
+
+        void Post(Action action)
+        {
+            if (queue is null || queue.HasThreadAccess)
+            {
+                action();
+            }
+            else
+            {
+                queue.TryEnqueue(() => action());
+            }
+        }
+
+        toggle.Toggled += async (_, _) =>
+        {
+            if (suppress > 0)
+            {
+                return;
+            }
+
+            var want = toggle.IsOn;
+            toggle.IsEnabled = false;
+            status.Text = "正在设置…";
+            status.Visibility = Visibility.Visible;
+            status.Foreground = Secondary;
+            try
+            {
+                var result = await StartupRegistration.SetAsync(want);
+                Post(() =>
+                {
+                    Show(result, persist: true);
+                    if (result.IsError)
+                    {
+                        toggle.IsEnabled = true;
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                Post(() =>
+                {
+                    SetOn(!want);
+                    toggle.IsEnabled = true;
+                    status.Text = "设置开机启动失败：" + ex.Message;
+                    status.Visibility = Visibility.Visible;
+                    status.Foreground = (Brush)Application.Current.Resources["SystemFillColorCriticalBrush"];
+                });
+            }
+        };
+
+        var link = new HyperlinkButton
+        {
+            Content = "打开 Windows 启动应用设置",
+            Padding = new Thickness(0)
+        };
+        Id(link, "OpenStartupSettingsLink", "打开 Windows 启动应用设置");
+        link.Click += async (_, _) =>
+        {
+            if (await WindowsSettings.OpenAsync("startupapps"))
+            {
+                return;
+            }
+
+            Post(() =>
+            {
+                status.Text = "打不开 Windows 的「启动应用」设置。请手动打开：设置 → 应用 → 启动。";
+                status.Visibility = Visibility.Visible;
+                status.Foreground = (Brush)Application.Current.Resources["SystemFillColorCriticalBrush"];
+            });
+        };
+
+        var section = new StackPanel { Spacing = 10 };
+        section.Children.Add(new Border
+        {
+            Height = 1,
+            Background = (Brush)Application.Current.Resources["DividerStrokeColorDefaultBrush"],
+            Margin = new Thickness(0, 4, 0, 0)
+        });
+        section.Children.Add(new TextBlock
+        {
+            Text = "启动",
+            Style = (Style)Application.Current.Resources["BodyStrongTextBlockStyle"]
+        });
+        section.Children.Add(toggle);
+        section.Children.Add(Caption("开启后，登录 Windows 时会静默启动「邮件」，不弹出主窗口。收信、同步和通知会继续。点托盘图标，或再从开始菜单打开，就会显示窗口。只登记当前用户，不需要管理员权限。"));
+        section.Children.Add(status);
+        section.Children.Add(link);
+
+        if (AppIdentity.IsPackaged)
+        {
+            _ = RefreshPackagedAsync();
+        }
+        else
+        {
+            Show(StartupRegistration.ReadUnpackaged(), persist: true);
+        }
+
+        return section;
+
+        async Task RefreshPackagedAsync()
+        {
+            try
+            {
+                var result = await StartupRegistration.ReadAsync();
+                Post(() => Show(result, persist: !result.IsError));
+            }
+            catch (Exception ex)
+            {
+                Post(() =>
+                {
+                    status.Text = "无法读取开机启动：" + ex.Message;
+                    status.Visibility = Visibility.Visible;
+                    status.Foreground = (Brush)Application.Current.Resources["SystemFillColorCriticalBrush"];
+                });
+            }
+        }
     }
 
     /// <summary>「更新」小节：自动检查开关 + 检查更新按钮和结果。</summary>

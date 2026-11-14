@@ -28,7 +28,12 @@ public sealed partial class ReadingPaneViewModel : ObservableObject
     private MessageEntity? _entity;
     private IReadOnlyList<RecipientEntity> _recipients = Array.Empty<RecipientEntity>();
     private readonly MessageActions _actions;
+    private SynchronizationContext? _ui = SynchronizationContext.Current;
     private int _loadVersion;
+
+    /// <summary>在 UI 线程就绪后注入。正文和已读状态都从后台回来，不能直接改绑定。</summary>
+    public void AttachSynchronizationContext(SynchronizationContext? context = null)
+        => _ui = context ?? SynchronizationContext.Current ?? _ui;
 
     public ReadingPaneViewModel(
         MailDatabase database,
@@ -39,13 +44,15 @@ public sealed partial class ReadingPaneViewModel : ObservableObject
         _database = database;
         _bodyLoader = bodyLoader;
         _actions = actions ?? new MessageActions(database, tree);
-        _actions.Mutated += OnActionMutated;
+        _actions.Mutated += (_, e) => Post(() => OnActionMutated(e));
     }
+
+    private void Post(Action action) => UiMarshal.Post(_ui, action);
 
     /// <summary>打开未读邮件后，停留多久才标记为已读（快速浏览时不会把路过的邮件都标成已读）。</summary>
     public TimeSpan MarkReadDelay { get; set; } = TimeSpan.FromMilliseconds(600);
 
-    private void OnActionMutated(object? sender, MessageMutationEventArgs e)
+    private void OnActionMutated(MessageMutationEventArgs e)
     {
         if (_entity is null || e.MessageId != _entity.Id)
         {
@@ -187,56 +194,65 @@ public sealed partial class ReadingPaneViewModel : ObservableObject
         var version = Interlocked.Increment(ref _loadVersion);
         if (messageId is null)
         {
-            Clear();
+            Post(Clear);
             return;
         }
 
-        var entity = await _database.GetMessageAsync(messageId);
+        var entity = await _database.GetMessageAsync(messageId).ConfigureAwait(false);
         if (entity is null || version != _loadVersion)
         {
             if (entity is null)
             {
-                Clear();
+                Post(() =>
+                {
+                    if (version == Volatile.Read(ref _loadVersion))
+                    {
+                        Clear();
+                    }
+                });
             }
 
             return;
         }
 
-        var recipients = await _database.ListRecipientsAsync(messageId);
-        var attachments = await _database.ListAttachmentsAsync(messageId);
-        if (version != _loadVersion)
+        var recipients = await _database.ListRecipientsAsync(messageId).ConfigureAwait(false);
+        var attachments = await _database.ListAttachmentsAsync(messageId).ConfigureAwait(false);
+        Post(() =>
         {
-            return;
-        }
-
-        ApplyHeader(entity, recipients, attachments);
-
-        if (entity.BodyFetched)
-        {
-            TouchBodyAccess(entity.Id);
-            ApplyBody(entity);
-            IsBodyLoading = false;
-            BodyLoadError = null;
-            // 旧缓存里的 cid: 内嵌图：后台静默再拉并改写，不闪加载态
-            if (CidHtmlRewriter.ContainsUnresolvedCid(entity.BodyHtml))
+            if (version != Volatile.Read(ref _loadVersion))
             {
+                return;
+            }
+
+            ApplyHeader(entity, recipients, attachments);
+
+            if (entity.BodyFetched)
+            {
+                TouchBodyAccess(entity.Id);
+                ApplyBody(entity);
+                IsBodyLoading = false;
+                BodyLoadError = null;
+                // 旧缓存里的 cid: 内嵌图：后台静默再拉并改写，不闪加载态
+                if (CidHtmlRewriter.ContainsUnresolvedCid(entity.BodyHtml))
+                {
+                    _ = EnsureBodyAsync(entity.Id, version);
+                }
+            }
+            else
+            {
+                // 不要把 Preview 当成正文：显示加载态，后台去拉完整内容
+                BodyHtml = null;
+                BodyText = string.Empty;
+                IsBodyLoading = true;
+                BodyLoadError = null;
                 _ = EnsureBodyAsync(entity.Id, version);
             }
-        }
-        else
-        {
-            // 不要把 Preview 当成正文：显示加载态，后台去拉完整内容
-            BodyHtml = null;
-            BodyText = string.Empty;
-            IsBodyLoading = true;
-            BodyLoadError = null;
-            _ = EnsureBodyAsync(entity.Id, version);
-        }
 
-        if (!entity.IsRead)
-        {
-            _ = MarkReadAfterDelayAsync(entity.Id, version);
-        }
+            if (!entity.IsRead)
+            {
+                _ = MarkReadAfterDelayAsync(entity.Id, version);
+            }
+        });
     }
 
     private void ApplyHeader(MessageEntity entity, IReadOnlyList<RecipientEntity> recipients, IReadOnlyList<AttachmentEntity> attachments)
@@ -277,65 +293,65 @@ public sealed partial class ReadingPaneViewModel : ObservableObject
         if (_bodyLoader is null)
         {
             // 测试 / 无网络场景：退回预览，并标明不是全文
-            if (version != Volatile.Read(ref _loadVersion) || _entity?.Id != messageId)
+            var local = await _database.GetMessageAsync(messageId).ConfigureAwait(false);
+            Post(() =>
             {
-                return;
-            }
+                if (local is null || version != Volatile.Read(ref _loadVersion) || _entity?.Id != messageId)
+                {
+                    return;
+                }
 
-            var local = await _database.GetMessageAsync(messageId);
-            if (local is null || version != _loadVersion)
-            {
-                return;
-            }
-
-            IsBodyLoading = false;
-            BodyText = string.IsNullOrEmpty(local.BodyText) ? local.Preview : local.BodyText!;
-            BodyHtml = local.BodyHtml;
-            BodyLoadError = "当前环境无法向服务器拉取完整正文。";
+                IsBodyLoading = false;
+                BodyText = string.IsNullOrEmpty(local.BodyText) ? local.Preview : local.BodyText!;
+                BodyHtml = local.BodyHtml;
+                BodyLoadError = "当前环境无法向服务器拉取完整正文。";
+            });
             return;
         }
 
         try
         {
-            await _bodyLoader.EnsureLoadedAsync(messageId);
-            if (version != Volatile.Read(ref _loadVersion) || _entity?.Id != messageId)
+            await _bodyLoader.EnsureLoadedAsync(messageId).ConfigureAwait(false);
+            var latest = await _database.GetMessageAsync(messageId).ConfigureAwait(false);
+            var attachments = await _database.ListAttachmentsAsync(messageId).ConfigureAwait(false);
+            Post(() =>
             {
-                return;
-            }
+                if (latest is null || version != Volatile.Read(ref _loadVersion) || _entity?.Id != messageId)
+                {
+                    return;
+                }
 
-            var latest = await _database.GetMessageAsync(messageId);
-            var attachments = await _database.ListAttachmentsAsync(messageId);
-            if (latest is null || version != _loadVersion)
-            {
-                return;
-            }
+                _entity = latest;
+                ApplyBody(latest);
+                Attachments.Clear();
+                foreach (var a in attachments.Where(x => !x.IsInline))
+                {
+                    Attachments.Add(new AttachmentItemViewModel(a, DownloadAttachmentCommand));
+                }
 
-            _entity = latest;
-            ApplyBody(latest);
-            Attachments.Clear();
-            foreach (var a in attachments.Where(x => !x.IsInline))
-            {
-                Attachments.Add(new AttachmentItemViewModel(a, DownloadAttachmentCommand));
-            }
-
-            HasAttachments = Attachments.Count > 0;
-            IsBodyLoading = false;
-            BodyLoadError = null;
+                HasAttachments = Attachments.Count > 0;
+                IsBodyLoading = false;
+                BodyLoadError = null;
+            });
         }
         catch (Exception ex)
         {
-            if (version != Volatile.Read(ref _loadVersion) || _entity?.Id != messageId)
+            var error = FriendlyBodyError(ex);
+            Post(() =>
             {
-                return;
-            }
+                if (version != Volatile.Read(ref _loadVersion) || _entity?.Id != messageId)
+                {
+                    return;
+                }
 
-            IsBodyLoading = false;
-            BodyLoadError = FriendlyBodyError(ex);
-            // 失败时仍展示预览，避免空白，并在错误条说明这不是全文
-            if (_entity is { } entity && string.IsNullOrEmpty(BodyText))
-            {
-                BodyText = entity.Preview;
-            }
+                IsBodyLoading = false;
+                BodyLoadError = error;
+                // 失败时仍展示预览，避免空白，并在错误条说明这不是全文
+                if (_entity is { } entity && string.IsNullOrEmpty(BodyText))
+                {
+                    BodyText = entity.Preview;
+                }
+            });
         }
     }
 
@@ -379,16 +395,19 @@ public sealed partial class ReadingPaneViewModel : ObservableObject
             throw new InvalidOperationException("当前环境无法下载附件。");
         }
 
-        await _bodyLoader.DownloadAttachmentAsync(attachmentId, destinationPath);
+        await _bodyLoader.DownloadAttachmentAsync(attachmentId, destinationPath).ConfigureAwait(false);
         // 刷新 LocalPath 显示（如有）
-        var attachments = await _database.ListAttachmentsAsync(_entity?.Id ?? string.Empty);
-        Attachments.Clear();
-        foreach (var a in attachments.Where(x => !x.IsInline))
+        var attachments = await _database.ListAttachmentsAsync(_entity?.Id ?? string.Empty).ConfigureAwait(false);
+        Post(() =>
         {
-            Attachments.Add(new AttachmentItemViewModel(a, DownloadAttachmentCommand));
-        }
+            Attachments.Clear();
+            foreach (var a in attachments.Where(x => !x.IsInline))
+            {
+                Attachments.Add(new AttachmentItemViewModel(a, DownloadAttachmentCommand));
+            }
 
-        HasAttachments = Attachments.Count > 0;
+            HasAttachments = Attachments.Count > 0;
+        });
     }
 
     private static string FriendlyBodyError(Exception ex)
@@ -439,24 +458,27 @@ public sealed partial class ReadingPaneViewModel : ObservableObject
             return;
         }
 
-        var latest = await _database.GetMessageAsync(current.Id);
-        if (!ReferenceEquals(_entity, current))
+        var latest = await _database.GetMessageAsync(current.Id).ConfigureAwait(false);
+        Post(() =>
         {
-            return; // 期间切换了邮件
-        }
+            if (!ReferenceEquals(_entity, current))
+            {
+                return; // 期间切换了邮件
+            }
 
-        if (latest is null)
-        {
-            Clear();
-            return;
-        }
+            if (latest is null)
+            {
+                Clear();
+                return;
+            }
 
-        _entity = latest;
-        if (latest.IsFlagged != IsFlagged)
-        {
-            IsFlagged = latest.IsFlagged;
-            FlagLabel = IsFlagged ? "取消标记" : "标记";
-        }
+            _entity = latest;
+            if (latest.IsFlagged != IsFlagged)
+            {
+                IsFlagged = latest.IsFlagged;
+                FlagLabel = IsFlagged ? "取消标记" : "标记";
+            }
+        });
     }
 
     private async Task MarkReadAfterDelayAsync(string messageId, int version)
@@ -465,7 +487,7 @@ public sealed partial class ReadingPaneViewModel : ObservableObject
         {
             if (MarkReadDelay > TimeSpan.Zero)
             {
-                await Task.Delay(MarkReadDelay);
+                await Task.Delay(MarkReadDelay).ConfigureAwait(false);
             }
 
             // 期间切换了邮件 / 已手动标记过：不再自动标已读
@@ -474,7 +496,7 @@ public sealed partial class ReadingPaneViewModel : ObservableObject
                 return;
             }
 
-            await _actions.SetReadAsync(messageId, true);
+            await _actions.SetReadAsync(messageId, true).ConfigureAwait(false);
         }
         catch (Exception)
         {

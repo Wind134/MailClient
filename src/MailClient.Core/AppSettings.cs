@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace MailClient.Core;
@@ -59,6 +59,9 @@ public sealed class AppSettings
 
     /// <summary>关闭主窗口时保留在后台（托盘），默认开。关则点关闭真正退出。</summary>
     public bool KeepRunningInBackground { get; set; } = true;
+
+    /// <summary>登录 Windows 时静默启动（不显示主窗口），默认关。只登记当前用户。</summary>
+    public bool LaunchAtStartup { get; set; }
 
     /// <summary>自动检查更新（启动约 30 秒后，之后每 6 小时），默认开。</summary>
     public bool AutoCheckUpdates { get; set; } = true;
@@ -241,6 +244,7 @@ public sealed class AppSettingsStore
         BodyCacheMaxMb = s.BodyCacheMaxMb,
         LinkOpenMode = s.LinkOpenMode,
         KeepRunningInBackground = s.KeepRunningInBackground,
+        LaunchAtStartup = s.LaunchAtStartup,
         AutoCheckUpdates = s.AutoCheckUpdates,
         SkippedUpdateVersion = s.SkippedUpdateVersion,
         TrayHintShown = s.TrayHintShown

@@ -12,7 +12,7 @@
     mc:Ignorable="d">
 
     <Window.SystemBackdrop>
-        <MicaBackdrop />
+        <DesktopAcrylicBackdrop />
     </Window.SystemBackdrop>
 
     <Grid>
@@ -207,6 +207,11 @@
             OpenPaneLength="240"
             PaneDisplayMode="Auto"
             SelectionChanged="NavView_SelectionChanged">
+            <NavigationView.Resources>
+                <!--  内容区透出窗口亚克力，列表 / 阅读卡片仍用 LayerFill 浮在上面。  -->
+                <SolidColorBrush x:Key="NavigationViewContentBackground" Color="Transparent" />
+                <Thickness x:Key="NavigationViewContentGridBorderThickness">0</Thickness>
+            </NavigationView.Resources>
 
             <NavigationView.PaneHeader>
                 <Button

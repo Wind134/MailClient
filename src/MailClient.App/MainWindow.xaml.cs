@@ -1,4 +1,4 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Threading;
@@ -57,6 +57,7 @@ public sealed partial class MainWindow : Window
             SynchronizationContext.SetSynchronizationContext(uiCtx);
             ViewModel.AttachSynchronizationContext(uiCtx);
             ViewModel.List.AttachSynchronizationContext(uiCtx);
+            ViewModel.Reading.AttachSynchronizationContext(uiCtx);
             var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MailClient");
             Directory.CreateDirectory(dir);
             MailClient.Core.Logging.RotatingLog.Append(Path.Combine(dir, "startup.log"), DateTimeOffset.Now.ToString("O") + " mainwindow:ui-marshal-attached\n");
@@ -152,12 +153,10 @@ public sealed partial class MainWindow : Window
             {
                 // 同一集合：属性变化时只同步标题；条目已由 CollectionChanged 维护
                 SyncListHeaderTexts();
-                LogWire(reason, messages, ok: true, detail: "same-col");
             }
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            LogWire(reason, ViewModel.List.Messages, ok: false, detail: ex.ToString());
             try { SyncListHeaderTexts(); } catch { }
         }
     }
@@ -213,9 +212,8 @@ public sealed partial class MainWindow : Window
 
                 SyncListHeaderTexts();
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                LogWire("col:" + e.Action, ViewModel.List.Messages, ok: false, detail: ex.ToString());
                 RebuildMessageListItems("col-fallback");
             }
         }
@@ -253,11 +251,9 @@ public sealed partial class MainWindow : Window
             }
 
             SyncListHeaderTexts();
-            LogWire(reason, messages, ok: true, detail: "items");
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            LogWire(reason, ViewModel.List.Messages, ok: false, detail: ex.ToString());
             try { SyncListHeaderTexts(); } catch { }
         }
         finally
@@ -277,20 +273,6 @@ public sealed partial class MainWindow : Window
         {
             ListSubtitleText.Text = ViewModel.List.Subtitle ?? string.Empty;
         }
-    }
-
-    private static void LogWire(string reason, ObservableCollection<MessageRowViewModel> messages, bool ok, string detail)
-    {
-        try
-        {
-            var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MailClient");
-            Directory.CreateDirectory(dir);
-            MailClient.Core.Logging.RotatingLog.Append(
-                Path.Combine(dir, "list-debug.log"),
-                string.Format("{0:O} wire {1} src={2} vm={3} detail={4}\n",
-                    DateTimeOffset.Now, ok ? "ok" : "FAIL", reason, messages.Count, detail));
-        }
-        catch { }
     }
 
     public ShellViewModel ViewModel { get; }
@@ -1210,8 +1192,16 @@ public sealed partial class MainWindow : Window
             var windowsLink = new HyperlinkButton
             {
                 Content = "打开 Windows 通知设置",
-                Padding = new Thickness(0),
-                NavigateUri = new Uri("ms-settings:notifications")
+                Padding = new Thickness(0)
+            };
+            windowsLink.Click += async (_, _) =>
+            {
+                if (await WindowsSettings.OpenAsync("notifications"))
+                {
+                    return;
+                }
+
+                windowsStatus.Text = "打不开 Windows 的通知设置。请手动打开：设置 → 系统 → 通知。";
             };
 
             var notifPanel = new StackPanel { Spacing = 10, Padding = new Thickness(0, 8, 0, 8) };
@@ -1406,11 +1396,19 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    /// <summary>开机静默启动时先不弹欢迎框，等窗口第一次被打开再提示。</summary>
+    public bool PromptFirstRunWhenShown { get; set; }
+
+    /// <summary>窗口从隐藏变为可见（托盘 / 开始菜单唤起）。</summary>
+    public event Action? ShownFromHidden;
+
     /// <summary>把窗口带到最前（从系统通知 / 托盘点进来时用）：若已隐藏或最小化则还原，并抢到前台。</summary>
     public void BringToFront()
     {
+        var wasHidden = false;
         try
         {
+            wasHidden = !AppWindow.IsVisible;
             if (AppWindow.Presenter is OverlappedPresenter presenter)
             {
                 if (presenter.State == OverlappedPresenterState.Minimized)
@@ -1430,6 +1428,26 @@ public sealed partial class MainWindow : Window
         catch
         {
             // 抢前台失败（系统限制）时窗口至少会在任务栏闪烁
+        }
+
+        if (!wasHidden)
+        {
+            return;
+        }
+
+        try
+        {
+            ShownFromHidden?.Invoke();
+        }
+        catch
+        {
+            // 托盘显隐失败不影响打开窗口
+        }
+
+        if (PromptFirstRunWhenShown)
+        {
+            PromptFirstRunWhenShown = false;
+            _ = ShowFirstRunPromptIfNeededAsync();
         }
     }
 

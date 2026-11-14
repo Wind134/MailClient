@@ -1,6 +1,6 @@
 # 主界面（三栏 UI）
 
-纯 WinUI 3 / Fluent：标准 `TitleBar`（`ExtendsContentIntoTitleBar`）+ Mica，无自绘窗口按钮。
+纯 WinUI 3 / Fluent：标准 `TitleBar`（`ExtendsContentIntoTitleBar`）+ 系统亚克力（`DesktopAcrylicBackdrop`），无自绘窗口按钮。导航栏展开时透出亚克力；窄窗口盖住内容时用系统内置的应用内亚克力。列表和阅读窗格仍是 `LayerFill` 卡片，保证正文可读。若 Windows「设置 → 个性化 → 颜色 → 透明效果」关掉，系统会自动退回纯色。
 
 ## 布局
 

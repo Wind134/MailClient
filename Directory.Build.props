@@ -1,7 +1,7 @@
 <Project>
   <!-- 全仓库唯一的版本号来源；scripts/build-installer.ps1 与 CI 也读这里。 -->
   <PropertyGroup>
-    <MailClientVersion>1.0.15.0</MailClientVersion>
+    <MailClientVersion>1.0.16.0</MailClientVersion>
     <Version>$(MailClientVersion)</Version>
     <AssemblyVersion>$(MailClientVersion)</AssemblyVersion>
     <FileVersion>$(MailClientVersion)</FileVersion>
