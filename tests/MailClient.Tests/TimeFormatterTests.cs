@@ -9,7 +9,14 @@ public class TimeFormatterTests
 
     [Fact]
     public void Today_Shows_Clock_With_Period()
-        => Assert.Equal("上午 10:24", TimeFormatter.FormatShort(new DateTimeOffset(2026, 10, 31, 10, 24, 0, Cn), Now));
+    {
+        // 显示的是本机本地时间。CI 在 UTC，不能把「上午 10:24」写死成东八区。
+        var value = new DateTimeOffset(2026, 10, 31, 10, 24, 0, Cn);
+        var local = value.ToLocalTime();
+        var hour = local.Hour % 12 == 0 ? 12 : local.Hour % 12;
+        var period = local.Hour < 12 ? "上午" : "下午";
+        Assert.Equal($"{period} {hour}:{local.Minute:D2}", TimeFormatter.FormatShort(value, Now));
+    }
 
     [Fact]
     public void Yesterday_Shows_Word()
