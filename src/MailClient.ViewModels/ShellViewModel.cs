@@ -74,7 +74,7 @@ public sealed partial class ShellViewModel : ObservableObject
             progressService.ProgressChanged += (_, p) => Post(() => OnSyncProgress(p));
         }
 
-        List = new MessageListViewModel(database, clock);
+        List = new MessageListViewModel(database, clock, settings);
         Actions = new MessageActions(database, Tree, draftStore);
         Reading = new ReadingPaneViewModel(database, Tree, Actions, bodyLoader);
         Outbox = new OutboxViewModel(database, clock);
@@ -372,9 +372,7 @@ public sealed partial class ShellViewModel : ObservableObject
         List.SearchText = string.Empty;
         if (node.ShowsCategories)
         {
-            var categories = MessageListViewModel.Categories.ToList();
-            var index = categories.IndexOf(message.Category ?? MailCategory.Primary);
-            List.SelectedCategoryIndex = Math.Max(0, index);
+            List.SelectedCategoryIndex = MessageListViewModel.IndexOfCategory(message.Category ?? MailCategory.Primary);
         }
 
         await List.ReloadAsync();

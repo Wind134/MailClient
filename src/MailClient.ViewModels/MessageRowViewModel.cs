@@ -47,7 +47,12 @@ public sealed partial class MessageRowViewModel : ObservableObject
     public string TimeText { get; }
     public bool HasAttachments { get; }
     public MailCategory Category { get; }
+    public string CategoryLabel => UiStrings.CategoryName(Category);
     public string Initials { get; private set; }
+
+    /// <summary>仅在「全部」分类视图中显示分类小标签。</summary>
+    [ObservableProperty]
+    private bool _showCategoryChip;
 
     /// <summary>草稿（本地或服务器同步下来的）。</summary>
     public bool IsDraft { get; }

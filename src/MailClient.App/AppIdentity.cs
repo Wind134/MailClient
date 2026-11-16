@@ -24,13 +24,19 @@ internal static class AppIdentity
     /// <summary>免打包启动的最早阶段调用：设置进程 AUMID，并确保通知身份已登记。</summary>
     public static void PrepareUnpackaged()
     {
+        var isolated = !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("MAILCLIENT_DB"));
         try
         {
-            SetCurrentProcessExplicitAppUserModelID(UnpackagedAumid);
+            SetCurrentProcessExplicitAppUserModelID(isolated ? UnpackagedAumid + ".Demo" : UnpackagedAumid);
         }
         catch
         {
             // 失败只会影响任务栏分组 / 通知标题
+        }
+
+        if (isolated)
+        {
+            return;
         }
 
         try

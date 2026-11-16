@@ -6,6 +6,7 @@ namespace MailClient.ViewModels;
 /// </summary>
 public static class UiStrings
 {
+    public const string AllCategories = "全部";
     public const string Primary = "主要";
     public const string Transactions = "交易";
     public const string Updates = "更新";
@@ -58,6 +59,16 @@ public static class UiStrings
         Core.MailCategory.Promotions => Promotions,
         _ => Primary
     };
+
+    public static string CategoryName(Core.MailCategory? category)
+        => category is { } value ? CategoryName(value) : AllCategories;
+
+    /// <summary>分类标签文字；未读大于 0 时在名称后加数字，例如“全部 3”。</summary>
+    public static string CategoryTabLabel(Core.MailCategory? category, int unread = 0)
+    {
+        var name = CategoryName(category);
+        return unread > 0 ? $"{name} {unread}" : name;
+    }
 
     public static string UnreadCount(int count) => count > 0 ? $"{count} 封未读" : "全部已读";
 }

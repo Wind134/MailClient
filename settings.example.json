@@ -10,5 +10,6 @@
   "LaunchAtStartup": false,
   "LinkOpenMode": "System",
   "BodyCacheMaxAgeDays": 90,
-  "BodyCacheMaxMb": 200
+  "BodyCacheMaxMb": 200,
+  "LastInboxCategoryTab": "Primary"
 }

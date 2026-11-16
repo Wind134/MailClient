@@ -46,10 +46,26 @@ public static class Program
         });
     }
 
+    /// <summary>
+    /// 指定了 MAILCLIENT_DB 时用独立实例键，避免演示 / 调试进程把激活重定向到正在用真实邮箱的实例。
+    /// </summary>
+    internal static string ResolveInstanceKey()
+    {
+        var db = Environment.GetEnvironmentVariable("MAILCLIENT_DB");
+        if (string.IsNullOrWhiteSpace(db))
+        {
+            return InstanceKey;
+        }
+
+        var full = Path.GetFullPath(db);
+        var hash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(full)));
+        return InstanceKey + ".isolated." + hash[..12];
+    }
+
     /// <summary>若当前进程不是主实例，重定向激活并返回 true（调用方应退出）。</summary>
     private static bool DecideRedirection()
     {
-        var main = AppInstance.FindOrRegisterForKey(InstanceKey);
+        var main = AppInstance.FindOrRegisterForKey(ResolveInstanceKey());
         if (main.IsCurrent)
         {
             main.Activated += OnActivated;

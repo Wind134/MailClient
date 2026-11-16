@@ -6,6 +6,14 @@ using MailClient.Storage;
 
 namespace MailClient.ViewModels;
 
+/// <summary>收件箱分类标签。Category 为 null 表示「全部」（不按分类过滤，也不写入数据库枚举）。</summary>
+public readonly record struct CategoryTab(MailCategory? Category, string Name)
+{
+    public bool IsAll => Category is null;
+
+    public string Key => Category is { } value ? value.ToString() : "All";
+}
+
 /// <summary>搜索范围。</summary>
 public enum SearchScope
 {
@@ -17,10 +25,20 @@ public enum SearchScope
 /// <summary>中栏：分类标签 + 搜索 + 邮件列表。</summary>
 public sealed partial class MessageListViewModel : ObservableObject
 {
-    private static readonly MailCategory[] TabOrder =
-        [MailCategory.Primary, MailCategory.Transactions, MailCategory.Updates, MailCategory.Promotions];
+    /// <summary>「全部」在最左，默认选中「主要」（下标 1）。</summary>
+    public const int DefaultCategoryIndex = 1;
+
+    private static readonly CategoryTab[] TabOrder =
+    [
+        new(null, UiStrings.AllCategories),
+        new(MailCategory.Primary, UiStrings.Primary),
+        new(MailCategory.Transactions, UiStrings.Transactions),
+        new(MailCategory.Updates, UiStrings.Updates),
+        new(MailCategory.Promotions, UiStrings.Promotions)
+    ];
 
     private readonly MailDatabase _database;
+    private readonly AppSettingsStore? _settings;
     private readonly Func<DateTimeOffset> _clock;
     private SynchronizationContext? _ui = SynchronizationContext.Current;
 
@@ -34,15 +52,57 @@ public sealed partial class MessageListViewModel : ObservableObject
     private IReadOnlyList<string>? _folderIds;
     private bool _suppressSelectionEvent;
 
-    public MessageListViewModel(MailDatabase database, Func<DateTimeOffset>? clock = null)
+    public MessageListViewModel(MailDatabase database, Func<DateTimeOffset>? clock = null, AppSettingsStore? settings = null)
     {
         _database = database;
+        _settings = settings;
         _clock = clock ?? (() => DateTimeOffset.Now);
+        _selectedCategoryIndex = settings is null
+            ? DefaultCategoryIndex
+            : ParseTabIndex(settings.Snapshot().LastInboxCategoryTab);
+        _categoryTabTexts = TabOrder.Select(t => t.Name).ToArray();
     }
 
     public ObservableCollection<MessageRowViewModel> Messages { get; } = new();
 
-    public static IReadOnlyList<MailCategory> Categories => TabOrder;
+    public static IReadOnlyList<CategoryTab> CategoryTabs => TabOrder;
+
+    /// <summary>不含「全部」的四个实体分类，供需要枚举分类的调用方使用。</summary>
+    public static IReadOnlyList<MailCategory> Categories { get; } =
+        [MailCategory.Primary, MailCategory.Transactions, MailCategory.Updates, MailCategory.Promotions];
+
+    public static int IndexOfCategory(MailCategory category)
+    {
+        for (var i = 0; i < TabOrder.Length; i++)
+        {
+            if (TabOrder[i].Category == category)
+            {
+                return i;
+            }
+        }
+
+        return DefaultCategoryIndex;
+    }
+
+    public static string TabKey(int index)
+        => TabOrder[Math.Clamp(index, 0, TabOrder.Length - 1)].Key;
+
+    public static int ParseTabIndex(string? key)
+    {
+        if (string.IsNullOrWhiteSpace(key))
+        {
+            return DefaultCategoryIndex;
+        }
+
+        if (key.Equals("All", StringComparison.OrdinalIgnoreCase))
+        {
+            return 0;
+        }
+
+        return Enum.TryParse<MailCategory>(key, ignoreCase: true, out var category)
+            ? IndexOfCategory(category)
+            : DefaultCategoryIndex;
+    }
 
     [ObservableProperty]
     private string _title = UiStrings.AllInboxes;
@@ -51,14 +111,18 @@ public sealed partial class MessageListViewModel : ObservableObject
     private string _subtitle = string.Empty;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ShowCategoryBar))]
+    [NotifyPropertyChangedFor(nameof(ShowCategoryBar), nameof(ShowCategoryChips))]
     private bool _showCategoryTabs;
 
     [ObservableProperty]
-    private int _selectedCategoryIndex;
+    [NotifyPropertyChangedFor(nameof(ShowCategoryChips), nameof(SelectedCategory))]
+    private int _selectedCategoryIndex = DefaultCategoryIndex;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsSearching), nameof(ShowCategoryBar), nameof(EmptyMessage))]
+    private IReadOnlyList<string> _categoryTabTexts = TabOrder.Select(t => t.Name).ToArray();
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsSearching), nameof(ShowCategoryBar), nameof(ShowCategoryChips), nameof(EmptyMessage))]
     private string _searchText = string.Empty;
 
     [ObservableProperty]
@@ -73,6 +137,9 @@ public sealed partial class MessageListViewModel : ObservableObject
 
     /// <summary>搜索时不显示分类标签（搜索跨分类）。</summary>
     public bool ShowCategoryBar => ShowCategoryTabs && !IsSearching;
+
+    /// <summary>「全部」视图下，列表行显示分类小标签。</summary>
+    public bool ShowCategoryChips => ShowCategoryBar && SelectedCategory is null;
 
     /// <summary>列表为空时的提示：搜索中 = “没有找到邮件”。</summary>
     public string EmptyMessage => IsSearching ? UiStrings.NoResults : UiStrings.EmptyFolder;
@@ -90,9 +157,13 @@ public sealed partial class MessageListViewModel : ObservableObject
     [ObservableProperty]
     private bool _isLoading;
 
-    public MailCategory SelectedCategory => TabOrder[Math.Clamp(SelectedCategoryIndex, 0, TabOrder.Length - 1)];
+    public MailCategory? SelectedCategory => TabOrder[Math.Clamp(SelectedCategoryIndex, 0, TabOrder.Length - 1)].Category;
 
-    partial void OnSelectedCategoryIndexChanged(int value) => _ = ReloadAsync();
+    partial void OnSelectedCategoryIndexChanged(int value)
+    {
+        _settings?.Update(s => s.LastInboxCategoryTab = TabKey(value));
+        _ = ReloadAsync();
+    }
 
     partial void OnSearchTextChanged(string value) => _ = DebouncedReloadAsync();
 
@@ -234,10 +305,12 @@ public sealed partial class MessageListViewModel : ObservableObject
 
             var now = _clock();
             var previousId = SelectedMessage?.Id;
+            var showChips = ShowCategoryChips;
             var rows = new List<MessageRowViewModel>(entities.Count);
             foreach (var entity in entities)
             {
                 var row = new MessageRowViewModel(entity, now, terms);
+                row.ShowCategoryChip = showChips;
                 if (snippets is not null && snippets.TryGetValue(entity.Id, out var snippet))
                 {
                     row.UseSnippet(snippet, terms.Body);
@@ -284,6 +357,8 @@ public sealed partial class MessageListViewModel : ObservableObject
             {
                 SelectionChangedExternally?.Invoke(this, EventArgs.Empty);
             }
+
+            await RefreshCategoryCountsAsync(version);
         }
         finally
         {
@@ -338,6 +413,7 @@ public sealed partial class MessageListViewModel : ObservableObject
                     }
 
                     var now = _clock();
+                    var showChips = ShowCategoryChips;
                     for (var target = 0; target < entities.Count; target++)
                     {
                         var entity = entities[target];
@@ -345,6 +421,7 @@ public sealed partial class MessageListViewModel : ObservableObject
                         {
                             Messages[target].IsUnread = !entity.IsRead;
                             Messages[target].IsFlagged = entity.IsFlagged;
+                            Messages[target].ShowCategoryChip = showChips;
                             continue;
                         }
 
@@ -363,10 +440,13 @@ public sealed partial class MessageListViewModel : ObservableObject
                             Messages.Move(existing, target);
                             Messages[target].IsUnread = !entity.IsRead;
                             Messages[target].IsFlagged = entity.IsFlagged;
+                            Messages[target].ShowCategoryChip = showChips;
                         }
                         else
                         {
-                            Messages.Insert(target, new MessageRowViewModel(entity, now));
+                            var inserted = new MessageRowViewModel(entity, now);
+                            inserted.ShowCategoryChip = showChips;
+                            Messages.Insert(target, inserted);
                         }
                     }
 
@@ -388,6 +468,8 @@ public sealed partial class MessageListViewModel : ObservableObject
             {
                 SelectionChangedExternally?.Invoke(this, EventArgs.Empty);
             }
+
+            await RefreshCategoryCountsAsync(version);
         }
         finally
         {
@@ -439,6 +521,36 @@ public sealed partial class MessageListViewModel : ObservableObject
         }
     }
 
+    /// <summary>刷新分类标签上的未读数字。folderIds 为空或未在分类栏时清成无数字的名称。</summary>
+    public async Task RefreshCategoryCountsAsync(int? requiredVersion = null)
+    {
+        if (requiredVersion is int version && version != Volatile.Read(ref _loadVersion))
+        {
+            return;
+        }
+
+        CategoryUnreadCounts counts;
+        try
+        {
+            counts = ShowCategoryTabs && _folderIds is not null
+                ? await _database.CountUnreadByCategoryAsync(_folderIds)
+                : CategoryUnreadCounts.Empty;
+        }
+        catch
+        {
+            counts = CategoryUnreadCounts.Empty;
+        }
+
+        if (requiredVersion is int still && still != Volatile.Read(ref _loadVersion))
+        {
+            return;
+        }
+
+        var texts = TabOrder.Select(t => UiStrings.CategoryTabLabel(t.Category, counts.For(t.Category))).ToArray();
+        void apply() => CategoryTabTexts = texts;
+        await UiMarshal.RunAsync(_ui ?? SynchronizationContext.Current, apply);
+    }
+
     public void RemoveRow(string messageId)
     {
         var row = Messages.FirstOrDefault(m => m.Id == messageId);
@@ -454,6 +566,11 @@ public sealed partial class MessageListViewModel : ObservableObject
         if (SelectedMessage is null && Messages.Count > 0)
         {
             SelectedMessage = Messages[Math.Min(index, Messages.Count - 1)];
+        }
+
+        if (ShowCategoryTabs)
+        {
+            _ = RefreshCategoryCountsAsync();
         }
     }
 
@@ -476,5 +593,9 @@ public sealed partial class MessageListViewModel : ObservableObject
         }
 
         Subtitle = UiStrings.UnreadCount(Messages.Count(m => m.IsUnread));
+        if (ShowCategoryTabs)
+        {
+            _ = RefreshCategoryCountsAsync();
+        }
     }
 }

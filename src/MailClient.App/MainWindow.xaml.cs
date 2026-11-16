@@ -36,6 +36,7 @@ public sealed partial class MainWindow : Window
     public MainWindow(ShellViewModel viewModel)
     {
         ViewModel = viewModel;
+        _syncingTabs = true;
         try
         {
             var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MailClient");
@@ -117,6 +118,9 @@ public sealed partial class MainWindow : Window
         // ItemsSource 改由代码挂接：x:Bind 在 Activated 的 Update_ 批里若 set_ItemsSource 抛 NRE，
         // 会中断同批 Title/Subtitle 等绑定（表现为标题空白 + 中栏空列表）。
         WireMessageListSource("ctor");
+        SyncCategoryBarFromViewModel();
+        ApplyCategoryTabTexts();
+        _syncingTabs = false;
         Activated += OnWindowActivatedWireList;
     }
 
@@ -542,25 +546,48 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    private void SyncCategoryBarFromViewModel()
+    {
+        var index = ViewModel.List.SelectedCategoryIndex;
+        if (index < 0 || index >= CategoryBar.Items.Count || CategoryBar.Items.IndexOf(CategoryBar.SelectedItem) == index)
+        {
+            return;
+        }
+
+        var wasSyncing = _syncingTabs;
+        _syncingTabs = true;
+        try
+        {
+            CategoryBar.SelectedItem = CategoryBar.Items[index];
+        }
+        finally
+        {
+            _syncingTabs = wasSyncing;
+        }
+    }
+
+    private void ApplyCategoryTabTexts()
+    {
+        var texts = ViewModel.List.CategoryTabTexts;
+        var count = Math.Min(texts.Count, CategoryBar.Items.Count);
+        for (var i = 0; i < count; i++)
+        {
+            if (CategoryBar.Items[i] is SelectorBarItem item && item.Text != texts[i])
+            {
+                item.Text = texts[i];
+            }
+        }
+    }
+
     private void OnListPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         switch (e.PropertyName)
         {
             case nameof(MessageListViewModel.SelectedCategoryIndex):
-                var index = ViewModel.List.SelectedCategoryIndex;
-                if (index >= 0 && index < CategoryBar.Items.Count && CategoryBar.Items.IndexOf(CategoryBar.SelectedItem) != index)
-                {
-                    _syncingTabs = true;
-                    try
-                    {
-                        CategoryBar.SelectedItem = CategoryBar.Items[index];
-                    }
-                    finally
-                    {
-                        _syncingTabs = false;
-                    }
-                }
-
+                SyncCategoryBarFromViewModel();
+                break;
+            case nameof(MessageListViewModel.CategoryTabTexts):
+                ApplyCategoryTabTexts();
                 break;
             case nameof(MessageListViewModel.SelectedMessage):
                 if (!_rebuildingMessageItems &&
@@ -582,6 +609,12 @@ public sealed partial class MainWindow : Window
             case nameof(MessageListViewModel.ShowCategoryTabs):
             case nameof(MessageListViewModel.Title):
             case nameof(MessageListViewModel.Subtitle):
+                if (e.PropertyName is nameof(MessageListViewModel.ShowCategoryBar) or nameof(MessageListViewModel.ShowCategoryTabs))
+                {
+                    SyncCategoryBarFromViewModel();
+                    ApplyCategoryTabTexts();
+                }
+
                 WireMessageListSource("list-pc:" + (e.PropertyName ?? ""));
                 UpdateEmptyPanels();
                 break;

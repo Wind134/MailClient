@@ -74,6 +74,12 @@ public sealed class AppSettings
 
     /// <summary>最近的搜索（最新在前，最多 10 条，去重）。</summary>
     public List<string> RecentSearches { get; set; } = new();
+
+    /// <summary>
+    /// Gmail 收件箱上次选中的分类标签：All / Primary / Transactions / Updates / Promotions。
+    /// 缺省或无法识别时视为 Primary（主要）。
+    /// </summary>
+    public string? LastInboxCategoryTab { get; set; }
 }
 
 /// <summary>读写 <see cref="AppSettings"/>；线程安全。环境变量优先于文件，便于调试而不落盘。</summary>
@@ -247,7 +253,8 @@ public sealed class AppSettingsStore
         LaunchAtStartup = s.LaunchAtStartup,
         AutoCheckUpdates = s.AutoCheckUpdates,
         SkippedUpdateVersion = s.SkippedUpdateVersion,
-        TrayHintShown = s.TrayHintShown
+        TrayHintShown = s.TrayHintShown,
+        LastInboxCategoryTab = s.LastInboxCategoryTab
     };
 
     private static string? FirstNonBlank(params string?[] values)

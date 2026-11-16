@@ -16,6 +16,22 @@ public sealed record MessageListFilter(
     Guid? AccountId = null,
     bool ExcludeTrashAndJunk = false);
 
+/// <summary>Gmail 收件箱各分类的未读数（NULL 分类已计入 Primary）。</summary>
+public sealed record CategoryUnreadCounts(int All, int Primary, int Transactions, int Updates, int Promotions)
+{
+    public static CategoryUnreadCounts Empty { get; } = new(0, 0, 0, 0, 0);
+
+    public int For(MailCategory? category) => category switch
+    {
+        null => All,
+        MailCategory.Primary => Primary,
+        MailCategory.Transactions => Transactions,
+        MailCategory.Updates => Updates,
+        MailCategory.Promotions => Promotions,
+        _ => 0
+    };
+}
+
 /// <summary>面向 UI 的查询 / 变更（与核心 CRUD 分文件，便于阅读）。</summary>
 public sealed partial class MailDatabase
 {
@@ -105,6 +121,75 @@ public sealed partial class MailDatabase
             }
 
             return (IReadOnlyList<MessageEntity>)list;
+        }, cancellationToken);
+
+    /// <summary>
+    /// 按分类统计未读数。Category 为 NULL 的邮件计入 <see cref="MailCategory.Primary"/>（与列表过滤一致）。
+    /// </summary>
+    public Task<CategoryUnreadCounts> CountUnreadByCategoryAsync(IReadOnlyList<string>? folderIds, CancellationToken cancellationToken = default)
+        => QueryAsync(async (connection, ct) =>
+        {
+            if (folderIds is { Count: 0 })
+            {
+                return CategoryUnreadCounts.Empty;
+            }
+
+            await using var command = connection.CreateCommand();
+            var where = new List<string>
+            {
+                "m.IsRead = 0",
+                "m.Id NOT IN (SELECT SourceMessageId FROM drafts WHERE SourceMessageId IS NOT NULL)"
+            };
+            if (folderIds is not null)
+            {
+                var names = new List<string>();
+                for (var i = 0; i < folderIds.Count; i++)
+                {
+                    var name = $"$f{i}";
+                    names.Add(name);
+                    command.Parameters.AddParam(name, folderIds[i]);
+                }
+
+                where.Add($"m.FolderId IN ({string.Join(", ", names)})");
+            }
+
+            command.CommandText =
+                "SELECT m.Category, COUNT(*) FROM messages AS m WHERE " +
+                string.Join(" AND ", where) +
+                " GROUP BY m.Category;";
+
+            var primary = 0;
+            var transactions = 0;
+            var updates = 0;
+            var promotions = 0;
+            await using var reader = await command.ExecuteReaderAsync(ct).ConfigureAwait(false);
+            while (await reader.ReadAsync(ct).ConfigureAwait(false))
+            {
+                var raw = reader.IsDBNull(0) ? null : reader.GetString(0);
+                var count = reader.GetInt32(1);
+                if (raw is null || string.Equals(raw, nameof(MailCategory.Primary), StringComparison.OrdinalIgnoreCase))
+                {
+                    primary += count;
+                }
+                else if (string.Equals(raw, nameof(MailCategory.Transactions), StringComparison.OrdinalIgnoreCase))
+                {
+                    transactions += count;
+                }
+                else if (string.Equals(raw, nameof(MailCategory.Updates), StringComparison.OrdinalIgnoreCase))
+                {
+                    updates += count;
+                }
+                else if (string.Equals(raw, nameof(MailCategory.Promotions), StringComparison.OrdinalIgnoreCase))
+                {
+                    promotions += count;
+                }
+                else
+                {
+                    primary += count;
+                }
+            }
+
+            return new CategoryUnreadCounts(primary + transactions + updates + promotions, primary, transactions, updates, promotions);
         }, cancellationToken);
 
     public Task<IReadOnlyList<FolderEntity>> ListAllFoldersAsync(CancellationToken cancellationToken = default)

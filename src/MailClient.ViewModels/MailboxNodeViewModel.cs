@@ -56,7 +56,7 @@ public sealed partial class MailboxNodeViewModel : ObservableObject
     private bool _showBadge = true;
 
     /// <summary>
-    /// 是否展示 Gmail 分类标签（主要/交易/更新/促销）。
+    /// 是否展示 Gmail 分类标签（全部/主要/交易/更新/促销）。
     /// 仅单个 Gmail 收件箱；「所有收件箱」与 Outlook/QQ/163/IMAP 不显示，列表也不按 Category 过滤。
     /// </summary>
     public bool ShowsCategories =>
