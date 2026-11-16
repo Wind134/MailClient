@@ -385,31 +385,11 @@
                             Margin="8,2,8,0"
                             SelectionChanged="CategoryBar_SelectionChanged"
                             Visibility="{x:Bind ViewModel.List.ShowCategoryBar, Mode=OneWay}">
-                            <SelectorBarItem x:Name="TabAll" Text="全部">
-                                <SelectorBarItem.Icon>
-                                    <FontIcon Glyph="&#xE8A5;" />
-                                </SelectorBarItem.Icon>
-                            </SelectorBarItem>
-                            <SelectorBarItem x:Name="TabPrimary" IsSelected="True" Text="主要">
-                                <SelectorBarItem.Icon>
-                                    <FontIcon Glyph="&#xE77B;" />
-                                </SelectorBarItem.Icon>
-                            </SelectorBarItem>
-                            <SelectorBarItem x:Name="TabTransactions" Text="交易">
-                                <SelectorBarItem.Icon>
-                                    <FontIcon Glyph="&#xE719;" />
-                                </SelectorBarItem.Icon>
-                            </SelectorBarItem>
-                            <SelectorBarItem x:Name="TabUpdates" Text="更新">
-                                <SelectorBarItem.Icon>
-                                    <FontIcon Glyph="&#xEA8F;" />
-                                </SelectorBarItem.Icon>
-                            </SelectorBarItem>
-                            <SelectorBarItem x:Name="TabPromotions" Text="促销">
-                                <SelectorBarItem.Icon>
-                                    <FontIcon Glyph="&#xE8EC;" />
-                                </SelectorBarItem.Icon>
-                            </SelectorBarItem>
+                            <SelectorBarItem x:Name="TabAll" Text="全部" />
+                            <SelectorBarItem x:Name="TabPrimary" IsSelected="True" Text="主要" />
+                            <SelectorBarItem x:Name="TabTransactions" Text="交易" />
+                            <SelectorBarItem x:Name="TabUpdates" Text="更新" />
+                            <SelectorBarItem x:Name="TabPromotions" Text="促销" />
                         </SelectorBar>
 
                         <Grid Grid.Row="3">
