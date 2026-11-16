@@ -2,7 +2,7 @@
 
 **Effective date / 生效日期：2026-11-10**
 
-This policy explains how the open-source desktop application **MailClient** (Windows display name may appear as 「邮件」) handles information related to you. The official web version of this policy is <https://wind134.github.io/MailClient/privacy.html>. The project homepage is <https://wind134.github.io/MailClient/>.
+This policy explains how the open-source desktop application **MailClient** (Windows display name may appear as 「邮件」) handles information related to you. The official web version of this policy is <https://mailclient.forxray.top/privacy.html>. The project homepage is <https://mailclient.forxray.top/>.
 
 MailClient's use and transfer of information received from Google APIs to any other app will adhere to [Google API Services User Data Policy](https://developers.google.com/terms/api-services-user-data-policy), including the Limited Use requirements.
 
@@ -103,7 +103,7 @@ MailClient is a general-purpose desktop email client. It is **not directed at ch
 
 ### Changes to this policy
 
-If this policy changes, we will update this page and the copy in the GitHub repository, and we will change the effective date at the top. The current web address remains <https://wind134.github.io/MailClient/privacy.html>.
+If this policy changes, we will update this page and the copy in the GitHub repository, and we will change the effective date at the top. The current web address remains <https://mailclient.forxray.top/privacy.html>.
 
 ### Contact
 
@@ -216,7 +216,7 @@ MailClient 是通用桌面邮件客户端，**并非面向 13 岁以下儿童**�
 
 ### 政策变更
 
-若本政策有更新，我们会修改本页以及 GitHub 仓库中的副本，并更新文首的生效日期。现行网址仍为 <https://wind134.github.io/MailClient/privacy.html>。
+若本政策有更新，我们会修改本页以及 GitHub 仓库中的副本，并更新文首的生效日期。现行网址仍为 <https://mailclient.forxray.top/privacy.html>。
 
 ### 联系方式
 

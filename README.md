@@ -66,8 +66,8 @@ Gmail 通过 Google OAuth 2.0 已安装应用流程（回环重定向 + PKCE + �
 
 本应用为本地桌面客户端，不收集、不上报用户数据。
 
-- 项目首页：<https://wind134.github.io/MailClient/>
-- 隐私权政策（网页）：<https://wind134.github.io/MailClient/privacy.html>
+- 项目首页：<https://mailclient.forxray.top/>
+- 隐私权政策（网页）：<https://mailclient.forxray.top/privacy.html>
 - 仓库内 Markdown 原文：[`PRIVACY.md`](PRIVACY.md)
 
 ## 添加账号
