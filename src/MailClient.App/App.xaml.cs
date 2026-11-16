@@ -194,7 +194,9 @@ public partial class App : Application
         var syncLog = new FileSyncLog(Path.Combine(Path.GetDirectoryName(Path.GetFullPath(path)) ?? ".", "sync.log"));
         WriteStartupBreadcrumb("onlaunched:after-synclog");
         WriteStartupBreadcrumb("onlaunched:before-account-sync");
-        var accountSync = new AccountSyncService(_database, credentials, settings, hwnd, syncLog);
+        // 登录失效跟踪：同步 / IDLE / 加载正文遇到认证失败时标记账号，界面弹“登录已失效”提醒、左栏显示红色感叹号
+        var relogin = new MailClient.Core.Auth.ReloginTracker();
+        var accountSync = new AccountSyncService(_database, credentials, settings, hwnd, syncLog, relogin);
         WriteStartupBreadcrumb("onlaunched:after-account-sync");
         ISyncService sync = accountSync;
         accountSync.NewMailDetected += OnNewMailDetected;
@@ -206,9 +208,10 @@ public partial class App : Application
         var drafts = new DatabaseDraftStore(_database, draftAttachmentRoot);
         // 后台服务与正文懒加载共用同一套提供商工厂
         var providers = new AccountProviderFactory(credentials, settings, hwnd);
-        var bodyLoader = new MailClient.Providers.Services.MessageBodyService(_database, providers);
+        var bodyLoader = new MailClient.Providers.Services.MessageBodyService(_database, providers, relogin);
+        var accountAuth = new AccountAuthService(_database, credentials, settings, hwnd);
         WriteStartupBreadcrumb("onlaunched:before-shell");
-        var shell = new ShellViewModel(_database, sendService, null, sync, setup, settings, drafts, bodyLoader: bodyLoader);
+        var shell = new ShellViewModel(_database, sendService, null, sync, setup, settings, drafts, bodyLoader: bodyLoader, relogin: relogin, accountAuth: accountAuth);
         WriteStartupBreadcrumb("onlaunched:after-shell");
 
         // 发件箱投递 + 已读/标记/移动/删除 写回服务器（均不会弹登录窗口，需要重新登录时会在界面上提示）
@@ -288,9 +291,22 @@ public partial class App : Application
         _storageMaintenance?.Start();
 
         // 双向同步：定时轮询 + Inbox 的 IDLE 推送；离线 / 系统休眠时暂停，恢复后立刻补一轮
-        _syncCoordinator = new SyncCoordinator(accountSync, _database, new ProviderIdleRunner(providers), () => settings.GetSyncOptions(), syncLog);
+        _syncCoordinator = new SyncCoordinator(accountSync, _database, new ProviderIdleRunner(providers), () => settings.GetSyncOptions(), syncLog, relogin: relogin);
         _syncCoordinator.SetOnline(NetworkInterface.GetIsNetworkAvailable());
         _syncCoordinator.Start();
+        // 重新登录成功（或登录恢复）后让该账号的 IDLE 立刻重连
+        relogin.StateChanged += (_, e) =>
+        {
+            if (!e.NeedsRelogin)
+            {
+                _syncCoordinator?.KickAccount(e.AccountId);
+            }
+        };
+        // 启动时检查一次每个账号的连接（不弹浏览器）；登录失效的进入同一套提醒
+        if (!_backgroundLaunch)
+        {
+            _ = shell.CheckAllAccountsAsync();
+        }
         NetworkChange.NetworkAvailabilityChanged += (_, e) =>
         {
             _syncCoordinator?.SetOnline(e.IsAvailable);

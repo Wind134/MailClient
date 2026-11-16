@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MailClient.Core;
+using MailClient.Core.Auth;
 using MailClient.Core.Search;
 using MailClient.Core.Services;
 using MailClient.Providers.Outbox;
@@ -43,8 +44,12 @@ public sealed partial class ShellViewModel : ObservableObject
         AppSettingsStore? settings = null,
         IDraftStore? draftStore = null,
         IRecentSearchStore? recentSearches = null,
-        IMessageBodyLoader? bodyLoader = null)
+        IMessageBodyLoader? bodyLoader = null,
+        ReloginTracker? relogin = null,
+        IAccountAuthService? accountAuth = null)
     {
+        _relogin = relogin;
+        _accountAuth = accountAuth;
         _database = database;
         _sendService = sendService;
         _syncService = syncService;
@@ -56,6 +61,12 @@ public sealed partial class ShellViewModel : ObservableObject
         if (settings is not null)
         {
             Tree.ColorResolver = settings.GetAccountColor;
+        }
+
+        if (relogin is not null)
+        {
+            Tree.ReloginResolver = relogin.NeedsRelogin;
+            relogin.StateChanged += (_, e) => Post(() => OnReloginStateChanged(e.AccountId, e.NeedsRelogin));
         }
 
         if (syncService is IProgressSyncService progressService)
@@ -577,7 +588,7 @@ public sealed partial class ShellViewModel : ObservableObject
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            failure = ex.Message;
+            failure = DescribeSyncFailure(ex, accountId);
         }
         finally
         {

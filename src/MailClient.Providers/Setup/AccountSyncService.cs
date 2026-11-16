@@ -1,10 +1,12 @@
 using MailClient.Auth;
 using MailClient.Core;
+using MailClient.Core.Auth;
 using MailClient.Core.Notifications;
 using MailClient.Core.Services;
 using MailClient.Core.Sync;
 using MailClient.Providers.Graph;
 using MailClient.Providers.Imap;
+using MailClient.Providers.Sync;
 using MailClient.Storage;
 using MailClient.Storage.Demo;
 
@@ -33,15 +35,19 @@ public sealed class AccountSyncService : IIncrementalSyncService
     private readonly Func<IntPtr>? _windowHandle;
     private readonly AccountConnectionStore _connections;
     private readonly ISyncLog _log;
+    private readonly ReloginTracker? _relogin;
     private readonly SemaphoreSlim _gate = new(1, 1);
 
+    /// <param name="relogin">登录失效跟踪：认证失败时标记账号需要重新登录，成功时清除；标记期间跳过该账号的后台同步。</param>
     public AccountSyncService(
         MailDatabase database,
         ICredentialStore store,
         AppSettingsStore settings,
         Func<IntPtr>? windowHandleProvider = null,
-        ISyncLog? log = null)
+        ISyncLog? log = null,
+        ReloginTracker? relogin = null)
     {
+        _relogin = relogin;
         _log = log ?? NullSyncLog.Instance;
         _db = database ?? throw new ArgumentNullException(nameof(database));
         _store = store ?? throw new ArgumentNullException(nameof(store));
@@ -89,6 +95,12 @@ public sealed class AccountSyncService : IIncrementalSyncService
             return;
         }
 
+        // 登录已失效：后台轮询 / IDLE 不再反复撞服务器（用户手动同步仍会尝试），重新登录成功后自动恢复
+        if (request.Background && _relogin?.NeedsRelogin(accountId) == true)
+        {
+            return;
+        }
+
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
@@ -110,6 +122,7 @@ public sealed class AccountSyncService : IIncrementalSyncService
                     .ConfigureAwait(false);
             }
 
+            _relogin?.ReportSuccess(account.Id);
             Report(account, request, SyncPhase.Completed, "同步完成", changed: changed);
             await TryRaiseNewMailAsync(account, snapshot).ConfigureAwait(false);
         }
@@ -122,8 +135,14 @@ public sealed class AccountSyncService : IIncrementalSyncService
         {
             var kind = ProviderDetector.Detect(account.EmailAddress)?.Kind ?? SetupProviderKind.OtherImap;
             var error = SetupErrorClassifier.Classify(ex, kind, SetupStage.Imap);
-            _log.Warn($"{account.EmailAddress}: 同步失败：{ex.Message}");
-            Report(account, request, SyncPhase.Failed, "同步失败", error: error.Message);
+            var authFailed = ConnectionFailureClassifier.IsAuthFailure(ex);
+            _log.Warn($"{account.EmailAddress}: 同步失败{(authFailed ? "（登录已失效）" : string.Empty)}：{ex.Message}");
+            if (authFailed)
+            {
+                _relogin?.ReportAuthFailure(account.Id);
+            }
+
+            Report(account, request, SyncPhase.Failed, "同步失败", error: authFailed ? ReloginTexts.SyncAuthFailed : error.Message);
             throw;
         }
         finally

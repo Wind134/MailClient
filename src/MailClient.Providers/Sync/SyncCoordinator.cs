@@ -1,4 +1,5 @@
 using MailClient.Core;
+using MailClient.Core.Auth;
 using MailClient.Core.Services;
 using MailClient.Core.Sync;
 using MailClient.Storage;
@@ -17,6 +18,7 @@ public sealed class SyncCoordinator : IAsyncDisposable
     private readonly IIdleRunner? _idle;
     private readonly Func<SyncOptions> _options;
     private readonly ISyncLog _log;
+    private readonly ReloginTracker? _relogin;
     private readonly SyncScheduler _scheduler;
     private readonly KickLoop _loop;
     private readonly Dictionary<Guid, ImapIdleSupervisor> _supervisors = [];
@@ -28,8 +30,10 @@ public sealed class SyncCoordinator : IAsyncDisposable
         IIdleRunner? idle,
         Func<SyncOptions> options,
         ISyncLog? log = null,
-        Func<DateTimeOffset>? clock = null)
+        Func<DateTimeOffset>? clock = null,
+        ReloginTracker? relogin = null)
     {
+        _relogin = relogin;
         _sync = sync;
         _db = database;
         _idle = idle;
@@ -84,6 +88,18 @@ public sealed class SyncCoordinator : IAsyncDisposable
     {
         _scheduler.RequestFull(force);
         _loop.Kick();
+    }
+
+    /// <summary>某账号登录恢复正常（重新登录成功）：让它的 IDLE 跳过退避等待立刻重连。同步由调用方另行发起。</summary>
+    public void KickAccount(Guid accountId)
+    {
+        lock (_supervisors)
+        {
+            if (_supervisors.TryGetValue(accountId, out var s))
+            {
+                s.Kick();
+            }
+        }
     }
 
     private async Task WorkAsync(bool ignoreBackoff, CancellationToken ct)
@@ -163,7 +179,7 @@ public sealed class SyncCoordinator : IAsyncDisposable
 
                 var supervisor = new ImapIdleSupervisor(
                     account.EmailAddress,
-                    (onChange, token) => _idle.RunAsync(account, onChange, token),
+                    (onChange, token) => RunIdleAsync(account, onChange, token),
                     token =>
                     {
                         _scheduler.RequestInbox(id);
@@ -182,6 +198,29 @@ public sealed class SyncCoordinator : IAsyncDisposable
         finally
         {
             _supervisorGate.Release();
+        }
+    }
+
+    /// <summary>
+    /// 一次 IDLE 会话。账号登录已失效时先等到重新登录成功（不反复重连、不刷日志）；
+    /// 会话因认证失败而结束时标记账号需要重新登录。
+    /// </summary>
+    private async Task<IdleOutcome> RunIdleAsync(AccountEntity account, Func<CancellationToken, Task> onChange, CancellationToken ct)
+    {
+        if (_relogin is not null && _relogin.NeedsRelogin(account.Id))
+        {
+            _log.Info($"{account.EmailAddress}: 登录已失效，IDLE 暂停，等待重新登录。");
+            await _relogin.WaitUntilClearedAsync(account.Id, ct).ConfigureAwait(false);
+        }
+
+        try
+        {
+            return await _idle!.RunAsync(account, onChange, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException && _relogin is not null && ConnectionFailureClassifier.IsAuthFailure(ex))
+        {
+            _relogin.ReportAuthFailure(account.Id);
+            throw;
         }
     }
 

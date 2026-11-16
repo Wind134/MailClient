@@ -26,6 +26,23 @@ public sealed class GmailAuthRequiredException : Exception
     public GmailAuthRequiredException(string message, Exception? inner = null) : base(message, inner) { }
 }
 
+/// <summary>重新登录时选了另一个账号（与本地账号的邮箱不一致）；已有凭据保持不变。</summary>
+public sealed class AccountMismatchException : InvalidOperationException
+{
+    public AccountMismatchException(string? signedIn, string expected)
+        : base(string.IsNullOrWhiteSpace(signedIn)
+            ? $"无法确认登录的是哪个账号，请用 {expected} 登录。原有登录信息没有改动。"
+            : $"登录的账号（{signedIn}）与这个账号的邮箱（{expected}）不一致，请用 {expected} 登录。原有登录信息没有改动。")
+    {
+        SignedInAs = signedIn;
+        Expected = expected;
+    }
+
+    public string? SignedInAs { get; }
+
+    public string Expected { get; }
+}
+
 /// <summary>持久化到 <see cref="ICredentialStore"/> 的令牌集合（JSON）。</summary>
 public sealed record GmailTokenSet(
     string AccessToken,

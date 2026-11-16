@@ -1,6 +1,8 @@
 using MailClient.Core;
+using MailClient.Core.Auth;
 using MailClient.Core.Services;
 using MailClient.Providers.Setup;
+using MailClient.Providers.Sync;
 using MailClient.Storage;
 
 namespace MailClient.Providers.Services;
@@ -10,11 +12,25 @@ public sealed class MessageBodyService : IMessageBodyLoader
 {
     private readonly MailDatabase _db;
     private readonly AccountProviderFactory _providers;
+    private readonly ReloginTracker? _relogin;
 
-    public MessageBodyService(MailDatabase database, AccountProviderFactory providers)
+    /// <param name="relogin">拉正文 / 附件时遇到登录失效，就标记账号需要重新登录。</param>
+    public MessageBodyService(MailDatabase database, AccountProviderFactory providers, ReloginTracker? relogin = null)
     {
         _db = database ?? throw new ArgumentNullException(nameof(database));
         _providers = providers ?? throw new ArgumentNullException(nameof(providers));
+        _relogin = relogin;
+    }
+
+    /// <summary>异常过滤器：认证失败时记一笔，但从不捕获（异常照常抛给调用方）。</summary>
+    private bool ReportIfAuthFailure(Guid accountId, Exception ex)
+    {
+        if (_relogin is not null && ex is not OperationCanceledException && ConnectionFailureClassifier.IsAuthFailure(ex))
+        {
+            _relogin.ReportAuthFailure(accountId);
+        }
+
+        return false;
     }
 
     public async Task EnsureLoadedAsync(string messageId, CancellationToken cancellationToken = default)
@@ -49,6 +65,18 @@ public sealed class MessageBodyService : IMessageBodyLoader
         var account = await _db.GetAccountAsync(message.AccountId, cancellationToken).ConfigureAwait(false)
             ?? throw new InvalidOperationException("账号不存在。");
 
+        try
+        {
+            await FetchAndSaveBodyAsync(account, message, messageId, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ReportIfAuthFailure(account.Id, ex))
+        {
+            throw;
+        }
+    }
+
+    private async Task FetchAndSaveBodyAsync(AccountEntity account, MessageEntity message, string messageId, CancellationToken cancellationToken)
+    {
         await using var handle = await _providers.OpenAsync(account, cancellationToken).ConfigureAwait(false);
         MessageBodyContent content;
         if (handle.Imap is { } imap)
@@ -104,6 +132,21 @@ public sealed class MessageBodyService : IMessageBodyLoader
         var account = await _db.GetAccountAsync(message.AccountId, cancellationToken).ConfigureAwait(false)
             ?? throw new InvalidOperationException("账号不存在。");
 
+        try
+        {
+            await DownloadFromServerAsync(account, message, attachment, destinationPath, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ReportIfAuthFailure(account.Id, ex))
+        {
+            throw;
+        }
+
+        await _db.SetAttachmentLocalPathAsync(attachmentId, destinationPath, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task DownloadFromServerAsync(
+        AccountEntity account, MessageEntity message, AttachmentEntity attachment, string destinationPath, CancellationToken cancellationToken)
+    {
         await using var handle = await _providers.OpenAsync(account, cancellationToken).ConfigureAwait(false);
         if (handle.Imap is { } imap)
         {
@@ -131,8 +174,6 @@ public sealed class MessageBodyService : IMessageBodyLoader
         {
             throw new InvalidOperationException("此账号类型暂不支持下载附件。");
         }
-
-        await _db.SetAttachmentLocalPathAsync(attachmentId, destinationPath, cancellationToken).ConfigureAwait(false);
     }
 
     internal static string ExtractGraphId(string localMessageId, Guid accountId)

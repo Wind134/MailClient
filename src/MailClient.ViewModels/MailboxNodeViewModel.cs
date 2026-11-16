@@ -44,6 +44,10 @@ public sealed partial class MailboxNodeViewModel : ObservableObject
     [ObservableProperty]
     private string? _colorHex;
 
+    /// <summary>登录已失效，需要重新登录（仅账号节点）：左栏显示红色感叹号。</summary>
+    [ObservableProperty]
+    private bool _needsRelogin;
+
     /// <summary>账号头像上的字母（显示名首字符）；仅账号节点使用。</summary>
     public string AvatarLetter { get; init; } = string.Empty;
 

@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Threading;
+using MailClient.Core.Auth;
 using MailClient.Core.Tray;
 using MailClient.Core.Updates;
 using MailClient.ViewModels;
@@ -96,6 +97,7 @@ public sealed partial class MainWindow : Window
         ViewModel.ComposeRequested += OnComposeRequested;
         ViewModel.PropertyChanged += OnShellPropertyChanged;
         ViewModel.ConfirmDraftDeletionAsync = ConfirmDeleteDraftAsync;
+        StartReloginPrompts();
         // Ctrl+F：聚焦搜索框
         var findAccelerator = new KeyboardAccelerator { Key = VirtualKey.F, Modifiers = VirtualKeyModifiers.Control };
         findAccelerator.Invoked += (_, e) =>
@@ -333,6 +335,7 @@ public sealed partial class MainWindow : Window
         if (node.Kind == MailboxNodeKind.Account)
         {
             item.ContextFlyout = BuildAccountFlyout(node);
+            ApplyReloginIndicator(item, node);
         }
 
         node.PropertyChanged += (_, e) =>
@@ -348,6 +351,10 @@ public sealed partial class MainWindow : Window
             else if (e.PropertyName == nameof(MailboxNodeViewModel.ColorHex))
             {
                 item.Icon = BuildIcon(node);
+            }
+            else if (e.PropertyName == nameof(MailboxNodeViewModel.NeedsRelogin))
+            {
+                ApplyReloginIndicator(item, node);
             }
         };
         _navItems[node] = item;
@@ -402,11 +409,18 @@ public sealed partial class MainWindow : Window
         sync.IsEnabled = !node.IsDemo && ViewModel.CanSync;
         var remove = new MenuFlyoutItem { Text = "移除账号…", Icon = new FontIcon { Glyph = "\uE74D" } };
         remove.Click += async (_, _) => await ConfirmRemoveAccountAsync(accountId.Value, node.Title);
+        // 重新登录：任何时候都可用（不只是失效时）；先检查连接，确实失效才走登录
+        var relogin = new MenuFlyoutItem { Text = ReloginTexts.MenuRelogin, Icon = new FontIcon { Glyph = "\uE8D7" } };
+        relogin.Click += async (_, _) => await ReloginFromMenuAsync(accountId.Value);
 
         flyout.Items.Add(rename);
         if (!node.IsDemo)
         {
             flyout.Items.Add(sync);
+            if (ViewModel.CanRelogin)
+            {
+                flyout.Items.Add(relogin);
+            }
         }
 
         flyout.Items.Add(remove);

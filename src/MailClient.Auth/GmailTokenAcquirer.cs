@@ -105,6 +105,25 @@ public sealed class GmailTokenAcquirer : IOAuthTokenSource, IDisposable
         }
     }
 
+    /// <summary>
+    /// 重新登录（账号右键“重新登录”）：不管现有令牌是否有效，都拉起浏览器走一遍授权。
+    /// 必须登录与 <see cref="GmailAccountConfig.EmailAddress"/> 相同的 Google 账号，否则抛 <see cref="AccountMismatchException"/>，
+    /// 原有令牌不受影响（只有校验通过后才写入凭据库）。
+    /// </summary>
+    public async Task<AccessTokenResult> ReauthenticateAsync(CancellationToken cancellationToken = default)
+    {
+        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            var set = await InteractiveLoginAsync(cancellationToken, requireKnownEmail: true).ConfigureAwait(false);
+            return ToResult(set);
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
     /// <summary>退出登录：尽力撤销 refresh token，并删除本地保存的令牌。</summary>
     public async Task SignOutAsync(CancellationToken cancellationToken = default)
     {
@@ -162,7 +181,7 @@ public sealed class GmailTokenAcquirer : IOAuthTokenSource, IDisposable
         return next;
     }
 
-    private async Task<GmailTokenSet> InteractiveLoginAsync(CancellationToken ct)
+    private async Task<GmailTokenSet> InteractiveLoginAsync(CancellationToken ct, bool requireKnownEmail = false)
     {
         using var listener = LoopbackAuthorizationListener.Start();
         var verifier = Pkce.CreateVerifier();
@@ -205,7 +224,17 @@ public sealed class GmailTokenAcquirer : IOAuthTokenSource, IDisposable
         if (!string.IsNullOrWhiteSpace(_config.EmailAddress) && email is not null &&
             !string.Equals(email, _config.EmailAddress, StringComparison.OrdinalIgnoreCase))
         {
+            if (requireKnownEmail)
+            {
+                throw new AccountMismatchException(email, _config.EmailAddress);
+            }
+
             throw new InvalidOperationException($"登录的 Google 账号（{email}）与配置的邮箱（{_config.EmailAddress}）不一致。");
+        }
+
+        if (requireKnownEmail && email is null && !string.IsNullOrWhiteSpace(_config.EmailAddress))
+        {
+            throw new AccountMismatchException(null, _config.EmailAddress);
         }
 
         var set = new GmailTokenSet(response.AccessToken, response.RefreshToken, response.ExpiresOn, email ?? _config.EmailAddress, response.Scope);

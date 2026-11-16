@@ -28,6 +28,9 @@ public sealed partial class MailboxTreeViewModel : ObservableObject
     /// <summary>按账号 Id 取颜色（由 Shell 注入，来自应用设置）。</summary>
     public Func<Guid, string?>? ColorResolver { get; set; }
 
+    /// <summary>按账号 Id 判断是否登录已失效（由 Shell 注入）。</summary>
+    public Func<Guid, bool>? ReloginResolver { get; set; }
+
     /// <summary>树结构重建完成（App 据此重新生成 NavigationView 菜单）。</summary>
     public event EventHandler? Rebuilt;
 
@@ -63,7 +66,8 @@ public sealed partial class MailboxTreeViewModel : ObservableObject
                 ProviderId = account.ProviderId,
                 IsDemo = DemoDataSeeder.IsDemoAccount(account.Id),
                 ColorHex = colors[account.Id],
-                AvatarLetter = AccountPalette.LetterFor(account.DisplayName, account.EmailAddress)
+                AvatarLetter = AccountPalette.LetterFor(account.DisplayName, account.EmailAddress),
+                NeedsRelogin = ReloginResolver?.Invoke(account.Id) == true
             };
 
             foreach (var folder in _allFolders

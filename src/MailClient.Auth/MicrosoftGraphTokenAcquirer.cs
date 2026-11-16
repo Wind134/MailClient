@@ -227,6 +227,81 @@ public sealed class MicrosoftGraphTokenAcquirer
         }
     }
 
+    /// <summary>
+    /// 重新登录（账号右键“重新登录”）：不管现有令牌是否有效，都走一遍交互登录。
+    /// <paramref name="isExpectedAccount"/> 返回 false（选了别的账号）时把令牌缓存恢复成登录前的样子，
+    /// 并抛 <see cref="AccountMismatchException"/>，原有登录不受影响。
+    /// </summary>
+    public async Task<AccessTokenResult> ReauthenticateAsync(
+        Func<AccessTokenResult, CancellationToken, Task<bool>> isExpectedAccount,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(isExpectedAccount);
+        if (string.IsNullOrWhiteSpace(_config.ClientId))
+        {
+            throw new InvalidOperationException(
+                "未配置 Microsoft Graph ClientId。请在 Entra ID 注册公共客户端应用后填入 MicrosoftGraphAccountConfig.ClientId。");
+        }
+
+        BrokerFallbackOccurred = false;
+        LastInteractiveUsedBroker = null;
+        var preferBroker = _config.UseWamBroker && OperatingSystem.IsWindows();
+        var snapshot = _cacheHelper.Load()?.ToArray();
+        EnsureApp(useBroker: preferBroker, forceRebuild: true);
+
+        AccessTokenResult result;
+        try
+        {
+            result = await AcquireWithBrokerFallbackAsync(
+                preferBroker,
+                async (useBroker, ct) =>
+                {
+                    if (useBroker != _brokerEnabled || _app is null)
+                    {
+                        if (!useBroker && preferBroker)
+                        {
+                            BrokerFallbackOccurred = true;
+                        }
+
+                        EnsureApp(useBroker, forceRebuild: true);
+                    }
+
+                    LastInteractiveUsedBroker = _brokerEnabled;
+                    return await ExecuteInteractiveAsync(ct, loginHint: _config.EmailAddress).ConfigureAwait(false);
+                },
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            throw new InvalidOperationException(FormatInteractiveFailure(ex, _config.ClientId), ex);
+        }
+
+        bool expected;
+        try
+        {
+            expected = await isExpectedAccount(result, cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
+            RestoreCache(snapshot);
+            throw;
+        }
+
+        if (!expected)
+        {
+            RestoreCache(snapshot);
+            throw new AccountMismatchException(result.AccountUsername, _config.EmailAddress);
+        }
+
+        return result;
+    }
+
+    private void RestoreCache(byte[]? snapshot)
+    {
+        _cacheHelper.Save(snapshot);
+        _app = null;      // 内存里的 PCA 还缓存着刚登录的账号：丢掉，下次按恢复后的缓存重建
+    }
+
     public async Task SignOutAsync(CancellationToken cancellationToken = default)
     {
         EnsureApp(useBroker: false);
@@ -240,11 +315,16 @@ public sealed class MicrosoftGraphTokenAcquirer
         cancellationToken.ThrowIfCancellationRequested();
     }
 
-    private async Task<AccessTokenResult> ExecuteInteractiveAsync(CancellationToken cancellationToken)
+    private async Task<AccessTokenResult> ExecuteInteractiveAsync(CancellationToken cancellationToken, string? loginHint = null)
     {
         var hwnd = ResolveParentHwnd(_windowHandleProvider, requireForBroker: _brokerEnabled);
         var request = _app!.AcquireTokenInteractive(_scopes)
             .WithPrompt(Prompt.SelectAccount);
+        if (!string.IsNullOrWhiteSpace(loginHint))
+        {
+            request = request.WithLoginHint(loginHint);
+        }
+
         if (hwnd != IntPtr.Zero)
         {
             request = request.WithParentActivityOrWindow(hwnd);
