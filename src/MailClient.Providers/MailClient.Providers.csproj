@@ -7,10 +7,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="MailKit" Version="4.18.2" />
-    <PackageReference Include="MimeKit" Version="4.18.2" />
-    <PackageReference Include="Microsoft.Graph" Version="6.9.0" />
-    <PackageReference Include="Azure.Core" Version="1.64.0" />
+    <PackageReference Include="MailKit" />
+    <PackageReference Include="MimeKit" />
+    <PackageReference Include="Microsoft.Graph" />
+    <PackageReference Include="Azure.Core" />
   </ItemGroup>
 
   <ItemGroup>

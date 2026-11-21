@@ -61,7 +61,7 @@ public static class DemoDataSeeder
         var clock = now ?? DateTimeOffset.Now;
         var created = clock.AddDays(-30);
 
-        await db.UpsertAccountAsync(new AccountEntity(OutlookAccountId, "Outlook", OutlookAddress, "microsoft.graph",
+        await db.UpsertAccountAsync(new AccountEntity(OutlookAccountId, "Outlook", OutlookAddress, ProviderIds.MicrosoftGraph,
             AuthKind.OAuth, created, clock, clock, true), cancellationToken).ConfigureAwait(false);
         await db.UpsertAccountAsync(new AccountEntity(QqAccountId, "QQ 邮箱", QqAddress, "imap.generic",
             AuthKind.AppPassword, created.AddMinutes(1), clock, clock, true), cancellationToken).ConfigureAwait(false);
@@ -99,7 +99,7 @@ public static class DemoDataSeeder
             }
 
             var category = demo.Folder is SpecialFolder.Inbox
-                ? MailCategoryClassifier.Classify(demo.Address, demo.Name, demo.Subject, preview)
+                ? MailCategoryClassifier.Classify(demo.Address, demo.Subject, preview)
                 : MailCategory.Primary;
 
             var accountAddress = demo.Account == OutlookAccountId ? OutlookAddress : QqAddress;

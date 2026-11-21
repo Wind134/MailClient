@@ -11,8 +11,7 @@ namespace MailClient.Storage;
 /// </summary>
 public sealed partial class MailDatabase
 {
-    private const string GraphProviderId = "microsoft.graph";
-
+    
     /// <summary>pending_ops 有新增 / 变化时触发（后台写回线程订阅）。</summary>
     public event EventHandler? PendingOpsChanged;
 
@@ -91,7 +90,7 @@ public sealed partial class MailDatabase
                     provider = (await p.ExecuteScalarAsync(ct).ConfigureAwait(false)) as string ?? string.Empty;
                 }
 
-                var isGraph = string.Equals(provider, GraphProviderId, StringComparison.OrdinalIgnoreCase);
+                var isGraph = string.Equals(provider, ProviderIds.MicrosoftGraph, StringComparison.OrdinalIgnoreCase);
                 // Graph：本地 Id = {账号}:{graphId}；刚在本地移动过（LocalState=2）的 Graph 邮件 id 已变，无法定位
                 string? remoteKey = isGraph
                     ? (localState == 2 ? null : GraphKeyFromMessageId(messageId, accountId))
@@ -390,36 +389,45 @@ public sealed partial class MailDatabase
             await transaction.CommitAsync(ct).ConfigureAwait(false);
         }, cancellationToken);
 
-    /// <summary>写入“本地生成的已发送副本”（LocalState=1）。服务器同步到真正的副本后会自动取代它。</summary>
-    public async Task UpsertLocalSentCopyAsync(MessageEntity message, IEnumerable<RecipientEntity> recipients, IEnumerable<AttachmentEntity> attachments, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// 写入“本地生成的已发送副本”（LocalState=1）。服务器同步到真正的副本后会自动取代它。
+    /// 正文、收件人、附件必须同属一个事务：否则中途失败会留下“已发送但没有收件人”的残缺副本。
+    /// </summary>
+    public async Task UpsertLocalSentCopyAsync(
+        MessageEntity message,
+        IEnumerable<RecipientEntity> recipients,
+        IEnumerable<AttachmentEntity> attachments,
+        CancellationToken cancellationToken = default)
     {
-        await UpsertMessageAsync(message, cancellationToken).ConfigureAwait(false);
+        var recipientList = recipients.ToList();
+        var attachmentList = attachments.ToList();
         await ExecuteAsync(async (connection, ct) =>
         {
-            await NonQueryAsync(connection, null, "UPDATE messages SET LocalState = 1 WHERE Id = $id;", ("$id", message.Id), ct).ConfigureAwait(false);
-            await NonQueryAsync(connection, null, "DELETE FROM recipients WHERE MessageId = $id;", ("$id", message.Id), ct).ConfigureAwait(false);
+            await using var transaction = (SqliteTransaction)await connection.BeginTransactionAsync(ct).ConfigureAwait(false);
+            await UpsertMessageCoreAsync(connection, transaction, message, ct).ConfigureAwait(false);
+
+            await using (var stamp = connection.CreateCommand())
+            {
+                stamp.Transaction = transaction;
+                stamp.CommandText = "UPDATE messages SET LocalState = 1 WHERE Id = $id; DELETE FROM recipients WHERE MessageId = $id;";
+                stamp.Parameters.AddParam("$id", message.Id);
+                await stamp.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+            }
+
+            foreach (var recipient in recipientList)
+            {
+                await UpsertRecipientCoreAsync(connection, transaction, recipient with { Id = 0, MessageId = message.Id }, ct).ConfigureAwait(false);
+            }
+
+            foreach (var attachment in attachmentList)
+            {
+                await UpsertAttachmentCoreAsync(connection, transaction, attachment with { MessageId = message.Id }, ct).ConfigureAwait(false);
+            }
+
+            await transaction.CommitAsync(ct).ConfigureAwait(false);
             await RecalculateFolderCountsCoreAsync(connection, ct).ConfigureAwait(false);
         }, cancellationToken).ConfigureAwait(false);
-        foreach (var r in recipients)
-        {
-            await UpsertRecipientAsync(r with { Id = 0, MessageId = message.Id }, cancellationToken).ConfigureAwait(false);
-        }
-
-        foreach (var a in attachments)
-        {
-            await UpsertAttachmentAsync(a with { MessageId = message.Id }, cancellationToken).ConfigureAwait(false);
-        }
     }
-
-    public Task<int> GetLocalStateAsync(string messageId, CancellationToken cancellationToken = default)
-        => QueryAsync(async (connection, ct) =>
-        {
-            await using var command = connection.CreateCommand();
-            command.CommandText = "SELECT LocalState FROM messages WHERE Id = $id;";
-            command.Parameters.AddParam("$id", messageId);
-            var value = await command.ExecuteScalarAsync(ct).ConfigureAwait(false);
-            return value is null ? -1 : Convert.ToInt32(value);
-        }, cancellationToken);
 
     /// <summary>邮件在服务器上的定位信息（IMAP：UID；Graph：消息 Id），供发件箱把副本 UID 回填等场景使用。</summary>
     public Task SetMessageRemoteUidAsync(string messageId, long? remoteUid, CancellationToken cancellationToken = default)

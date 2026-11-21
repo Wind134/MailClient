@@ -46,9 +46,5 @@ public static class RetryPolicy
 
     /// <param name="attemptsSoFar">已经尝试的次数（>=1）。第 1 次失败后等 30 秒，之后 2 分、8 分、32 分……</param>
     public static TimeSpan Delay(int attemptsSoFar)
-    {
-        var n = Math.Max(1, attemptsSoFar);
-        var seconds = BaseDelay.TotalSeconds * Math.Pow(4, n - 1);
-        return TimeSpan.FromSeconds(Math.Min(seconds, MaxDelay.TotalSeconds));
-    }
+        => Backoff.DelayFor(Math.Max(1, attemptsSoFar), BaseDelay, MaxDelay, factor: 4);
 }

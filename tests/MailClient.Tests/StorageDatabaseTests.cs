@@ -371,7 +371,7 @@ public sealed class StorageDatabaseTests : IAsyncDisposable
         var sizeAfter = new FileInfo(path).Length;
         Assert.True(sizeAfter < sizeBefore / 2, $"before={sizeBefore} after={sizeAfter}");
         Assert.True(await IsCachedAsync(db, "draft:keep"));
-        var all = await db.ListMessagesAsync(seed.Folder, 1000);
+        var all = await db.QueryMessagesAsync(new MessageListFilter(FolderIds: [seed.Folder], Limit: 1000));
         Assert.True(all.Count >= 100);
         Assert.Equal("ok", await db.IntegrityCheckAsync());
     }

@@ -92,8 +92,8 @@ public class SentCopyPolicyTests
     [InlineData("imap.generic", SetupProviderKind.Qq, true)]
     [InlineData("imap.generic", SetupProviderKind.NetEase, true)]
     [InlineData("imap.generic", SetupProviderKind.OtherImap, true)]
-    [InlineData("gmail.oauth", SetupProviderKind.Gmail, false)]
-    [InlineData("microsoft.graph", SetupProviderKind.Outlook, false)]
+    [InlineData(ProviderIds.Gmail, SetupProviderKind.Gmail, false)]
+    [InlineData(ProviderIds.MicrosoftGraph, SetupProviderKind.Outlook, false)]
     public void Default_Per_Provider(string providerId, SetupProviderKind kind, bool expected)
         => Assert.Equal(expected, SentCopyPolicy.DefaultFor(providerId, kind));
 
@@ -112,8 +112,8 @@ public class SentCopyPolicyTests
     }
 
     [Theory]
-    [InlineData("gmail.oauth", SetupProviderKind.Gmail)]
-    [InlineData("microsoft.graph", SetupProviderKind.Outlook)]
+    [InlineData(ProviderIds.Gmail, SetupProviderKind.Gmail)]
+    [InlineData(ProviderIds.MicrosoftGraph, SetupProviderKind.Outlook)]
     public void Gmail_And_Graph_Never_Append_Even_If_Overridden(string providerId, SetupProviderKind kind)
         => Assert.False(SentCopyPolicy.ShouldAppend(providerId, kind, true));
 }
@@ -121,10 +121,10 @@ public class SentCopyPolicyTests
 public class AttachmentLimitsTests
 {
     [Fact]
-    public void Graph_Is_Limited_To_Inline_Size() => Assert.Equal(3L * 1024 * 1024, AttachmentLimits.For("microsoft.graph"));
+    public void Graph_Is_Limited_To_Inline_Size() => Assert.Equal(3L * 1024 * 1024, AttachmentLimits.For(ProviderIds.MicrosoftGraph));
 
     [Fact]
-    public void Gmail_Is_About_Eighteen_Megabytes() => Assert.Equal(18L * 1024 * 1024, AttachmentLimits.For("gmail.oauth"));
+    public void Gmail_Is_About_Eighteen_Megabytes() => Assert.Equal(18L * 1024 * 1024, AttachmentLimits.For(ProviderIds.Gmail));
 
     [Theory]
     [InlineData("a@qq.com")]

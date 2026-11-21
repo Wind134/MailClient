@@ -20,8 +20,8 @@ public class GmailProviderTests
     {
         var config = Config();
         var provider = new GmailProvider(config, new FixedTokenSource());
-        Assert.Equal("gmail.oauth", provider.ProviderId);
-        Assert.Equal("gmail.oauth", provider.Imap.ProviderId);
+        Assert.Equal(ProviderIds.Gmail, provider.ProviderId);
+        Assert.Equal(ProviderIds.Gmail, provider.Imap.ProviderId);
         Assert.Equal(config.AccountId, provider.AccountId);
 
         var imap = GmailProvider.ToImapConfig(config);

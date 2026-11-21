@@ -9,4 +9,7 @@
     <NoWarn>$(NoWarn);CA1416</NoWarn>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\MailClient.Core\MailClient.Core.csproj" />
+  </ItemGroup>
 </Project>

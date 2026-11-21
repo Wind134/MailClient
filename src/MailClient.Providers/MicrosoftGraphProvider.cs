@@ -1,6 +1,5 @@
 using MailClient.Auth;
 using MailClient.Core;
-using MailClient.Core.Providers;
 using MailClient.Providers.Graph;
 using MailClient.Providers.Imap;
 using Microsoft.Graph;
@@ -15,7 +14,7 @@ namespace MailClient.Providers;
 /// Outlook / Microsoft 365 邮件提供商（MSAL + Microsoft Graph）。
 /// ProviderId = microsoft.graph
 /// </summary>
-public sealed class MicrosoftGraphProvider : IMailProvider, IGraphDeltaSource, IAsyncDisposable
+public sealed class MicrosoftGraphProvider : IGraphDeltaSource, IAsyncDisposable
 {
     private readonly MicrosoftGraphAccountConfig _config;
     private readonly MicrosoftGraphTokenAcquirer _acquirer;
@@ -25,7 +24,7 @@ public sealed class MicrosoftGraphProvider : IMailProvider, IGraphDeltaSource, I
     private string? _resolvedEmail;
     private IReadOnlyList<MailFolder>? _folderCache;
 
-    public string ProviderId => "microsoft.graph";
+    public string ProviderId => ProviderIds.MicrosoftGraph;
 
     public Guid AccountId => _config.AccountId;
 
@@ -68,7 +67,7 @@ public sealed class MicrosoftGraphProvider : IMailProvider, IGraphDeltaSource, I
             }
             catch
             {
-                // ignore probe errors
+                // 探测失败可忽略
             }
 
             _folderCache = null;
@@ -147,15 +146,6 @@ public sealed class MicrosoftGraphProvider : IMailProvider, IGraphDeltaSource, I
         }
     }
 
-    public async Task<IReadOnlyList<MailMessageSummary>> SyncFolderAsync(
-        string folderId,
-        CancellationToken cancellationToken = default)
-    {
-        var items = await SyncFolderDetailedAsync(folderId, maxCount: null, deltaLink: null, cancellationToken)
-            .ConfigureAwait(false);
-        return items.Items.Select(i => i.Summary).ToList();
-    }
-
     /// <summary>
     /// 详细同步。若提供/返回 deltaLink，可做增量；否则按 receivedDateTime 拉取最近一批。
     /// </summary>
@@ -190,13 +180,6 @@ public sealed class MicrosoftGraphProvider : IMailProvider, IGraphDeltaSource, I
         {
             _gate.Release();
         }
-    }
-
-    public async Task SendAsync(OutgoingMailMessage message, CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(message);
-        var client = await EnsureClientAsync(cancellationToken).ConfigureAwait(false);
-        await SendCoreAsync(client, message, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>后台（发件箱 / 写回）用：只做静默取票，绝不弹出登录窗口；令牌失效时抛认证类错误。</summary>

@@ -11,7 +11,7 @@ namespace MailClient.Storage.Services;
 /// </summary>
 public sealed class DatabaseDraftStore : IDraftStore
 {
-    private const string Prefix = MailDatabase.DraftMessagePrefix;
+    private const string Prefix = MailIds.DraftMessagePrefix;
     private const string NoSubject = "(无主题)";
     private readonly MailDatabase _database;
     private readonly string? _attachmentRoot;

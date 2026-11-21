@@ -1,7 +1,7 @@
 using MailClient.Core.Auth;
 using MailClient.Providers.Setup;
 using MailClient.Providers.Sync;
-using MailClient.Storage.Demo;
+using MailClient.Core;
 
 namespace MailClient.ViewModels;
 
@@ -119,7 +119,7 @@ public sealed partial class ShellViewModel
         }
 
         var accounts = (await _database.ListAccountsAsync(cancellationToken))
-            .Where(a => a.IsEnabled && !DemoDataSeeder.IsDemoAccount(a.Id))
+            .Where(a => a.IsEnabled && !DemoAccounts.IsDemoAccount(a.Id))
             .ToList();
         await Task.WhenAll(accounts.Select(async a =>
         {

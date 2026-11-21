@@ -11,11 +11,6 @@ public interface ISendService
     Task EnqueueAsync(OutgoingMailMessage message, CancellationToken cancellationToken = default);
 }
 
-public interface ISearchService
-{
-    Task<IReadOnlyList<MailMessageSummary>> SearchAsync(string query, CancellationToken cancellationToken = default);
-}
-
 public enum SyncPhase
 {
     Started,

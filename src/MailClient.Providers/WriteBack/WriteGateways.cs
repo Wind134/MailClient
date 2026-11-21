@@ -13,7 +13,7 @@ public sealed class ImapWriteGateway : IMessageWriteGateway
     public ImapWriteGateway(ProviderHandle handle)
     {
         _handle = handle;
-        _imap = handle.Imap ?? throw new ArgumentException("缺少 IMAP 提供商。", nameof(handle));
+        _imap = handle.Imap;
     }
 
     private static long Uid(RemoteMessage m)
@@ -44,7 +44,7 @@ public sealed class GraphWriteGateway : IMessageWriteGateway
     public GraphWriteGateway(ProviderHandle handle)
     {
         _handle = handle;
-        _graph = handle.Graph ?? throw new ArgumentException("缺少 Graph 提供商。", nameof(handle));
+        _graph = handle.Graph;
     }
 
     public Task SetReadAsync(RemoteMessage message, bool read, CancellationToken cancellationToken)
@@ -74,6 +74,6 @@ public sealed class WriteGatewayFactory : IWriteGatewayFactory
     public async Task<IMessageWriteGateway> CreateAsync(AccountEntity account, CancellationToken cancellationToken)
     {
         var handle = await _providers.OpenAsync(account, cancellationToken).ConfigureAwait(false);
-        return handle.Graph is not null ? new GraphWriteGateway(handle) : new ImapWriteGateway(handle);
+        return handle.Kind == ProviderKind.Graph ? new GraphWriteGateway(handle) : new ImapWriteGateway(handle);
     }
 }

@@ -3,15 +3,15 @@ namespace MailClient.Setup.Core;
 /// <summary>安装程序与应用共同约定的名字。AUMID 必须和 MailClient.App 里的 AppIdentity.UnpackagedAumid 一致。</summary>
 public static class SetupConstants
 {
-    public const string ProductName = "邮件";
+    public const string ProductName = MailClient.Core.AppIdentifiers.ProductName;
     public const string Publisher = "MailClient";
     public const string AppExeName = "MailClient.App.exe";
     public const string SetupExeName = "MailClient.Setup.exe";
-    public const string Aumid = "MailClient.Desktop";
+    public const string Aumid = MailClient.Core.AppIdentifiers.Aumid;
     public const string UninstallKeyName = "MailClient";
 
     /// <summary>HKCU Run 的值名。必须和 <c>MailClient.Core.Tray.StartupLaunch.RunValueName</c> 一致。</summary>
-    public const string StartupRunValueName = "MailClient";
+    public const string StartupRunValueName = MailClient.Core.AppIdentifiers.StartupRunValueName;
 
     public const string StartupRunSubKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
     public const string ManifestFileName = "install-manifest.txt";

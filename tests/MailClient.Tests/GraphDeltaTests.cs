@@ -15,7 +15,7 @@ public class GraphDeltaTests
 
     private static async Task<(GraphSyncPipeline P, FakeGraphSource S, SendFixture Fx, MemorySyncLog Log)> StartAsync()
     {
-        var fx = await SendFixture.CreateAsync("microsoft.graph");
+        var fx = await SendFixture.CreateAsync(ProviderIds.MicrosoftGraph);
         var log = new MemorySyncLog();
         var s = new FakeGraphSource();
         return (Pipeline(fx, log), s, fx, log);

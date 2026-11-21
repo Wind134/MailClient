@@ -136,7 +136,7 @@ public class OutboxProcessorTests
     [Fact]
     public async Task Sent_Copy_Is_Not_Appended_When_Policy_Says_Server_Saves_It()
     {
-        await using var rig = await CreateAsync("gmail.oauth");
+        await using var rig = await CreateAsync(ProviderIds.Gmail);
         rig.Factory.AppendSentCopy = false;
         var id = await rig.EnqueueAsync();
 
@@ -345,7 +345,7 @@ public class OutboxProcessorTests
     [Fact]
     public async Task Maybe_Sent_Not_Found_On_Authoritative_Server_Is_Resent()
     {
-        await using var rig = await CreateAsync("gmail.oauth");
+        await using var rig = await CreateAsync(ProviderIds.Gmail);
         var id = await rig.EnqueueAsync();
         await rig.Db.TryMarkOutboxSendingAsync(id, rig.Clock);
         await rig.Processor.RecoverAsync();

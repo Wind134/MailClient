@@ -69,9 +69,6 @@ public sealed partial class MailDatabase
         return updated;
     }
 
-    public Task<IReadOnlyList<OutboxEntity>> ListPendingOutboxAsync(CancellationToken cancellationToken = default)
-        => QueryOutboxAsync("WHERE Status IN ('Pending', 'Failed') ORDER BY CreatedAt", null, cancellationToken);
-
     /// <summary>发件箱里仍需要用户关注的条目（待发 / 发送中 / 失败），不含已发送。</summary>
     public Task<IReadOnlyList<OutboxEntity>> ListOutboxItemsAsync(CancellationToken cancellationToken = default)
         => QueryOutboxAsync("WHERE Status <> 'Sent' ORDER BY CreatedAt", null, cancellationToken);

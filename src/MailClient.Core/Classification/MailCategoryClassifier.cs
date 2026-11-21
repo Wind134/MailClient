@@ -44,10 +44,9 @@ public static class MailCategoryClassifier
         "mailer", "newsletter", "digest", "feedback@", "news@", "team@", "info@", "support@", "service@", "system@"
     ];
 
-    public static MailCategory Classify(string? fromAddress, string? fromName, string? subject, string? preview = null)
+    public static MailCategory Classify(string? fromAddress, string? subject, string? preview = null)
     {
         var address = fromAddress ?? string.Empty;
-        var name = fromName ?? string.Empty;
         var subj = subject ?? string.Empty;
         var body = preview ?? string.Empty;
 
@@ -74,7 +73,6 @@ public static class MailCategoryClassifier
             return MailCategory.Promotions;
         }
 
-        _ = name;
         return MailCategory.Primary;
     }
 

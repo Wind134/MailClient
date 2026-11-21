@@ -12,7 +12,7 @@ public sealed class ImapOutgoingTransport : IOutgoingTransport
     public ImapOutgoingTransport(ProviderHandle handle, bool sentLookupIsAuthoritative)
     {
         _handle = handle;
-        _imap = handle.Imap ?? throw new ArgumentException("缺少 IMAP 提供商。", nameof(handle));
+        _imap = handle.Imap;
         SentLookupIsAuthoritative = sentLookupIsAuthoritative;
     }
 
@@ -47,7 +47,7 @@ public sealed class GraphOutgoingTransport : IOutgoingTransport
     public GraphOutgoingTransport(ProviderHandle handle)
     {
         _handle = handle;
-        _graph = handle.Graph ?? throw new ArgumentException("缺少 Graph 提供商。", nameof(handle));
+        _graph = handle.Graph;
     }
 
     public bool SentLookupIsAuthoritative => true;
@@ -76,13 +76,13 @@ public sealed class OutgoingTransportFactory : IOutgoingTransportFactory
     public async Task<IOutgoingTransport> CreateAsync(AccountEntity account, CancellationToken cancellationToken)
     {
         var handle = await _providers.OpenAsync(account, cancellationToken).ConfigureAwait(false);
-        if (handle.Graph is not null)
+        if (handle.Kind == ProviderKind.Graph)
         {
             return new GraphOutgoingTransport(handle);
         }
 
         // Gmail 服务器会保存已发送邮件并保留客户端的 Message-ID，查不到就是没发出；普通 IMAP 服务器不会保存，查不到不可信
-        return new ImapOutgoingTransport(handle, sentLookupIsAuthoritative: account.ProviderId == SentCopyPolicy.GmailProviderId);
+        return new ImapOutgoingTransport(handle, sentLookupIsAuthoritative: account.ProviderId == ProviderIds.Gmail);
     }
 
     public bool ShouldAppendSentCopy(AccountEntity account)

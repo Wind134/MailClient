@@ -109,8 +109,8 @@ public sealed class AccountSyncService : IIncrementalSyncService
             var options = _settings.GetSyncOptions();
             var changed = account.ProviderId switch
             {
-                "microsoft.graph" => await SyncGraphAsync(account, request, options, cancellationToken).ConfigureAwait(false),
-                GmailEndpoints.ProviderId => await SyncGmailAsync(account, request, options, cancellationToken).ConfigureAwait(false),
+                ProviderIds.MicrosoftGraph => await SyncGraphAsync(account, request, options, cancellationToken).ConfigureAwait(false),
+                ProviderIds.Gmail => await SyncGmailAsync(account, request, options, cancellationToken).ConfigureAwait(false),
                 _ => await SyncImapAsync(account, request, options, cancellationToken).ConfigureAwait(false)
             };
 

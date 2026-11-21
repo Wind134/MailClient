@@ -2,7 +2,6 @@ using System.Collections.ObjectModel;
 using System.Text.Json;
 using CommunityToolkit.Mvvm.ComponentModel;
 using MailClient.Core;
-using MailClient.Storage;
 
 namespace MailClient.ViewModels;
 
@@ -76,10 +75,10 @@ public sealed partial class OutboxItemViewModel : ObservableObject
 /// <summary>发件箱视图：列出待发 / 发送中 / 失败的邮件，支持重试和删除。</summary>
 public sealed partial class OutboxViewModel : ObservableObject
 {
-    private readonly MailDatabase _database;
+    private readonly IMailStore _database;
     private readonly Func<DateTimeOffset> _clock;
 
-    public OutboxViewModel(MailDatabase database, Func<DateTimeOffset>? clock = null)
+    public OutboxViewModel(IMailStore database, Func<DateTimeOffset>? clock = null)
     {
         _database = database;
         _clock = clock ?? (() => DateTimeOffset.Now);

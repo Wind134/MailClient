@@ -9,12 +9,12 @@ public static class AttachmentLimits
     /// <param name="emailAddress">用于识别 QQ / 网易这类按域名区分的预设。</param>
     public static long For(string providerId, string? emailAddress = null)
     {
-        if (string.Equals(providerId, "microsoft.graph", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(providerId, ProviderIds.MicrosoftGraph, StringComparison.OrdinalIgnoreCase))
         {
             return GraphInlineLimit;
         }
 
-        if (string.Equals(providerId, "gmail.oauth", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(providerId, ProviderIds.Gmail, StringComparison.OrdinalIgnoreCase))
         {
             return 18L * 1024 * 1024;
         }

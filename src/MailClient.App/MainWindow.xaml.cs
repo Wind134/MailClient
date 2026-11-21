@@ -891,10 +891,6 @@ public sealed partial class MainWindow : Window
     private void OnMailtoRequested(MailClient.Core.Links.MailtoData mailto) =>
         OnComposeRequested(this, new ComposeRequest(ComposeMode.New, null, mailto.To, mailto.Cc, mailto.Subject, mailto.Body, mailto.Bcc));
 
-    /// <summary>仅供自动化测试 / 截图：用当前设置打开一个链接（和点邮件里的链接走同一条路由）。</summary>
-    internal void OpenLinkForTest(string url) =>
-        HandleMailLink(MailClient.Core.Links.LinkRouter.Route(url, CurrentLinkMode()));
-
     private string WrapHtml(string body)
     {
         var dark = Content is FrameworkElement fe && fe.ActualTheme == ElementTheme.Dark;

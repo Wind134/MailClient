@@ -154,7 +154,7 @@ public sealed partial class MailDatabase
         {
             var evicted = 0;
             long freed = 0;
-            const int batch = 400;
+            const int batch = SqliteHelpers.MaxParametersPerStatement;
             for (var offset = 0; offset < ids.Count; offset += batch)
             {
                 var chunk = ids.Skip(offset).Take(batch).ToList();

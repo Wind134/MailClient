@@ -105,7 +105,7 @@ public static class Program
             }
             catch
             {
-                // ignore
+                // 忽略：失败不影响主流程
             }
             finally
             {

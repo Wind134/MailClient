@@ -7,8 +7,6 @@ using MailClient.Core.Services;
 using MailClient.Providers.Outbox;
 using MailClient.Providers.Setup;
 using MailClient.Providers.WriteBack;
-using MailClient.Storage;
-using MailClient.Storage.Demo;
 using MailClient.ViewModels.AddAccount;
 
 namespace MailClient.ViewModels;
@@ -16,7 +14,7 @@ namespace MailClient.ViewModels;
 /// <summary>主窗口 VM：把左 / 中 / 右三栏串起来。</summary>
 public sealed partial class ShellViewModel : ObservableObject
 {
-    private readonly MailDatabase _database;
+    private readonly IMailStore _database;
     private readonly ISendService _sendService;
     private readonly ISyncService? _syncService;
     private readonly IAccountSetupService? _accountSetup;
@@ -36,7 +34,7 @@ public sealed partial class ShellViewModel : ObservableObject
     private Guid? _selectInboxOfAccount;
 
     public ShellViewModel(
-        MailDatabase database,
+        IMailStore database,
         ISendService sendService,
         Func<DateTimeOffset>? clock = null,
         ISyncService? syncService = null,
@@ -209,7 +207,7 @@ public sealed partial class ShellViewModel : ObservableObject
         }
 
         IComposeWindow? open = null;
-        var key = "draft:" + messageId[MailDatabase.DraftMessagePrefix.Length..];
+        var key = "draft:" + messageId[MailIds.DraftMessagePrefix.Length..];
         if (ComposeWindows.TryGet(key, out var window) && window is not null)
         {
             // 草稿被删了：窗口里的内容不再保存
@@ -289,12 +287,12 @@ public sealed partial class ShellViewModel : ObservableObject
 
         if (seedDemoData && _settings?.Snapshot().DemoDataDismissed != true)
         {
-            await DemoDataSeeder.SeedIfEmptyAsync(_database);
+            await _database.SeedDemoDataIfEmptyAsync();
         }
         else
         {
             // 正式版 / 升级：清掉残留演示账号（Outlook / QQ 邮箱种子），不动用户自己加的账号
-            await DemoDataSeeder.ClearDemoDataAsync(_database);
+            await _database.ClearDemoDataAsync();
             _settings?.Update(s => s.DemoDataDismissed = true);
         }
 
@@ -517,10 +515,10 @@ public sealed partial class ShellViewModel : ObservableObject
 
     public async Task ClearDemoDataAsync()
     {
-        await DemoDataSeeder.ClearDemoDataAsync(_database);
+        await _database.ClearDemoDataAsync();
         _settings?.Update(s => s.DemoDataDismissed = true);
         await RefreshAccountFlagsAsync();
-        if (Tree.SelectedNode?.AccountId is { } id && DemoDataSeeder.IsDemoAccount(id))
+        if (Tree.SelectedNode?.AccountId is { } id && DemoAccounts.IsDemoAccount(id))
         {
             Tree.SelectedNode = null;
             List.SelectedMessage = null;
@@ -538,8 +536,8 @@ public sealed partial class ShellViewModel : ObservableObject
     private async Task RefreshAccountFlagsAsync()
     {
         var accounts = await _database.ListAccountsAsync();
-        HasRealAccounts = accounts.Any(a => !DemoDataSeeder.IsDemoAccount(a.Id));
-        HasDemoData = accounts.Any(a => DemoDataSeeder.IsDemoAccount(a.Id));
+        HasRealAccounts = accounts.Any(a => !DemoAccounts.IsDemoAccount(a.Id));
+        HasDemoData = accounts.Any(a => DemoAccounts.IsDemoAccount(a.Id));
         OnPropertyChanged(nameof(ShouldShowFirstRunPrompt));
     }
 
@@ -737,7 +735,7 @@ public sealed partial class ShellViewModel : ObservableObject
         string? draftId = null;
         if (MessageActions.IsLocalDraft(messageId))
         {
-            draftId = messageId[MailDatabase.DraftMessagePrefix.Length..];
+            draftId = messageId[MailIds.DraftMessagePrefix.Length..];
         }
         else
         {

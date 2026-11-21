@@ -145,7 +145,7 @@ public sealed class SyncCoordinator : IAsyncDisposable
             {
                 foreach (var a in await _db.ListAccountsAsync(ct).ConfigureAwait(false))
                 {
-                    if (a.IsEnabled && !DemoDataSeeder.IsDemoAccount(a.Id) && a.ProviderId != "microsoft.graph")
+                    if (a.IsEnabled && !DemoDataSeeder.IsDemoAccount(a.Id) && a.ProviderId != ProviderIds.MicrosoftGraph)
                     {
                         wanted[a.Id] = a;
                     }

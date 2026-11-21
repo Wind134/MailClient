@@ -1,3 +1,4 @@
+using MailClient.Core;
 using MailClient.Providers.Setup;
 
 namespace MailClient.Providers.Outbox;
@@ -9,15 +10,12 @@ namespace MailClient.Providers.Outbox;
 /// </summary>
 public static class SentCopyPolicy
 {
-    public const string GraphProviderId = "microsoft.graph";
-    public const string GmailProviderId = "gmail.oauth";
-
     public static string PresetKey(SetupProviderKind kind) => kind.ToString();
 
     public static bool DefaultFor(string providerId, SetupProviderKind kind)
     {
-        if (string.Equals(providerId, GraphProviderId, StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(providerId, GmailProviderId, StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(providerId, ProviderIds.MicrosoftGraph, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(providerId, ProviderIds.Gmail, StringComparison.OrdinalIgnoreCase))
         {
             return false;
         }
@@ -32,8 +30,8 @@ public static class SentCopyPolicy
     /// <param name="userOverride">settings.json 中对应预设的覆盖值（null = 用默认）。Gmail / Graph 不可被覆盖为 true（会产生重复邮件）。</param>
     public static bool ShouldAppend(string providerId, SetupProviderKind kind, bool? userOverride)
     {
-        if (string.Equals(providerId, GraphProviderId, StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(providerId, GmailProviderId, StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(providerId, ProviderIds.MicrosoftGraph, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(providerId, ProviderIds.Gmail, StringComparison.OrdinalIgnoreCase))
         {
             return false;
         }

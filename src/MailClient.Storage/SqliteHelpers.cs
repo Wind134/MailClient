@@ -6,6 +6,12 @@ namespace MailClient.Storage;
 
 internal static class SqliteHelpers
 {
+    /// <summary>
+    /// 单条语句 IN(...) 的批量上限。SQLite 默认 SQLITE_MAX_VARIABLE_NUMBER 为 999，
+    /// 这里留出余量给同语句的其他参数，避免各处自写 400 / 500 两套数字。
+    /// </summary>
+    public const int MaxParametersPerStatement = 400;
+
     public static string Fmt(DateTimeOffset value)
         => value.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture);
 

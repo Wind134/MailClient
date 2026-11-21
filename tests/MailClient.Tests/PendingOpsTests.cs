@@ -207,7 +207,7 @@ public class PendingOpsDatabaseTests
     [Fact]
     public async Task Graph_Messages_Use_Graph_Id_As_Remote_Key()
     {
-        await using var fx = await SendFixture.CreateAsync("microsoft.graph");
+        await using var fx = await SendFixture.CreateAsync(ProviderIds.MicrosoftGraph);
         var folder = fx.FolderId("INBOX");
         var id = $"{fx.AccountId:D}:AAMk123=";
         await fx.Db.UpsertMessagesAsync([fx.Message("INBOX", 1) with { Id = id, RemoteUid = null }]);

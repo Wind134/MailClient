@@ -5,30 +5,21 @@ using MailClient.Providers.Imap;
 namespace MailClient.Tests;
 
 /// <summary>
-/// 可选联调：设置环境变量后才会真正连接。
-/// MAILCLIENT_IMAP_HOST, MAILCLIENT_IMAP_PORT, MAILCLIENT_IMAP_USER, MAILCLIENT_IMAP_PASSWORD
-/// 可选：MAILCLIENT_SMTP_HOST, MAILCLIENT_SMTP_PORT, MAILCLIENT_IMAP_SSL=ssl|starttls
+/// 真实 IMAP 联调（手动执行）。需要环境变量 MAILCLIENT_IMAP_HOST / USER / PASSWORD，
+/// 可选 MAILCLIENT_IMAP_PORT(993)、MAILCLIENT_IMAP_SSL(ssl|starttls|none)、
+/// MAILCLIENT_SMTP_HOST、MAILCLIENT_SMTP_PORT(465)。未配置时用例标记为跳过。
 /// </summary>
+[Trait("Category", "Live")]
 public class LiveImapTests
 {
-    private static bool IsConfigured()
-        => !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("MAILCLIENT_IMAP_HOST"))
-           && !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("MAILCLIENT_IMAP_USER"))
-           && !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("MAILCLIENT_IMAP_PASSWORD"));
-
-    [Fact]
+    [SkippableFact]
     public async Task Connect_ListFolders_WhenEnvConfigured()
     {
-        if (!IsConfigured())
-        {
-            return;
-        }
-
-        var host = Environment.GetEnvironmentVariable("MAILCLIENT_IMAP_HOST")!;
-        var port = int.Parse(Environment.GetEnvironmentVariable("MAILCLIENT_IMAP_PORT") ?? "993");
-        var user = Environment.GetEnvironmentVariable("MAILCLIENT_IMAP_USER")!;
-        var pass = Environment.GetEnvironmentVariable("MAILCLIENT_IMAP_PASSWORD")!;
-        var ssl = (Environment.GetEnvironmentVariable("MAILCLIENT_IMAP_SSL") ?? "ssl").ToLowerInvariant();
+        var host = LiveEnvironment.Require("MAILCLIENT_IMAP_HOST");
+        var user = LiveEnvironment.Require("MAILCLIENT_IMAP_USER");
+        var pass = LiveEnvironment.Require("MAILCLIENT_IMAP_PASSWORD");
+        var port = LiveEnvironment.OptionalPort("MAILCLIENT_IMAP_PORT", 993);
+        var ssl = (LiveEnvironment.Optional("MAILCLIENT_IMAP_SSL") ?? "ssl").ToLowerInvariant();
         var socket = ssl switch
         {
             "starttls" => MailSecureSocketOptions.StartTls,
@@ -36,8 +27,8 @@ public class LiveImapTests
             _ => MailSecureSocketOptions.SslOnConnect
         };
 
-        var smtpHost = Environment.GetEnvironmentVariable("MAILCLIENT_SMTP_HOST") ?? host.Replace("imap", "smtp");
-        var smtpPort = int.Parse(Environment.GetEnvironmentVariable("MAILCLIENT_SMTP_PORT") ?? "465");
+        var smtpHost = LiveEnvironment.Optional("MAILCLIENT_SMTP_HOST") ?? host.Replace("imap", "smtp");
+        var smtpPort = LiveEnvironment.OptionalPort("MAILCLIENT_SMTP_PORT", 465);
 
         var config = new GenericImapAccountConfig(
             AccountId: Guid.NewGuid(),

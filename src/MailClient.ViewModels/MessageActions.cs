@@ -1,7 +1,6 @@
 using MailClient.Core;
 using MailClient.Core.Services;
 using MailClient.Core.Sync;
-using MailClient.Storage;
 
 namespace MailClient.ViewModels;
 
@@ -13,12 +12,12 @@ public sealed record ActionNotice(string Message, bool IsError);
 /// </summary>
 public sealed class MessageActions
 {
-    private readonly MailDatabase _database;
+    private readonly IMailStore _database;
     private readonly MailboxTreeViewModel _tree;
 
     private readonly IDraftStore? _drafts;
 
-    public MessageActions(MailDatabase database, MailboxTreeViewModel tree, IDraftStore? drafts = null)
+    public MessageActions(IMailStore database, MailboxTreeViewModel tree, IDraftStore? drafts = null)
     {
         _database = database;
         _tree = tree;
@@ -26,7 +25,7 @@ public sealed class MessageActions
     }
 
     /// <summary>本地草稿在列表里是 id 以 "draft:" 开头的“邮件”，它不在服务器上，不能走已读 / 标记 / 归档 / 移动这些写回操作。</summary>
-    public static bool IsLocalDraft(string messageId) => messageId.StartsWith(MailDatabase.DraftMessagePrefix, StringComparison.Ordinal);
+    public static bool IsLocalDraft(string messageId) => messageId.StartsWith(MailIds.DraftMessagePrefix, StringComparison.Ordinal);
 
     public event EventHandler<MessageMutationEventArgs>? Mutated;
 
@@ -104,7 +103,7 @@ public sealed class MessageActions
                 return false;
             }
 
-            await _drafts.DeleteAsync(messageId[MailDatabase.DraftMessagePrefix.Length..]);
+            await _drafts.DeleteAsync(messageId[MailIds.DraftMessagePrefix.Length..]);
             Mutated?.Invoke(this, new MessageMutationEventArgs(messageId, MessageMutation.Deleted));
             return true;
         }

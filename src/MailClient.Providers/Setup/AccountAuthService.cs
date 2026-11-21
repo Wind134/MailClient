@@ -68,7 +68,7 @@ public sealed class AccountAuthService : IAccountAuthService
         timeout.CancelAfter(CheckTimeout);
         try
         {
-            if (account.ProviderId == "microsoft.graph")
+            if (account.ProviderId == ProviderIds.MicrosoftGraph)
             {
                 var acquirer = CreateGraphAcquirer(account);
                 var token = await acquirer.AcquireAsync(allowInteractive: false, timeout.Token).ConfigureAwait(false);
@@ -86,10 +86,7 @@ public sealed class AccountAuthService : IAccountAuthService
             {
                 // Gmail（XOAUTH2，必要时先用 refresh token 刷新）与普通 IMAP：连接 + 登录即说明凭据有效
                 await using var handle = await _providers.OpenAsync(account, timeout.Token).ConfigureAwait(false);
-                if (handle.Imap is { } imap)
-                {
-                    await imap.ConnectAsync(timeout.Token).ConfigureAwait(false);
-                }
+                await handle.Imap.ConnectAsync(timeout.Token).ConfigureAwait(false);
             }
 
             return ConnectionCheckResult.Healthy;
@@ -108,7 +105,7 @@ public sealed class AccountAuthService : IAccountAuthService
     public async Task<bool> RequiresPasswordAsync(Guid accountId, CancellationToken cancellationToken)
     {
         var account = await _db.GetAccountAsync(accountId, cancellationToken).ConfigureAwait(false);
-        return account is not null && account.ProviderId is not ("microsoft.graph" or GmailEndpoints.ProviderId);
+        return account is not null && account.ProviderId is not (ProviderIds.MicrosoftGraph or ProviderIds.Gmail);
     }
 
     public async Task<ReauthResult> ReauthenticateAsync(Guid accountId, string? password, CancellationToken cancellationToken)
@@ -123,7 +120,7 @@ public sealed class AccountAuthService : IAccountAuthService
         {
             switch (account.ProviderId)
             {
-                case GmailEndpoints.ProviderId:
+                case ProviderIds.Gmail:
                 {
                     var clientId = _settings.GmailClientId;
                     if (string.IsNullOrWhiteSpace(clientId))
@@ -136,7 +133,7 @@ public sealed class AccountAuthService : IAccountAuthService
                     await acquirer.ReauthenticateAsync(cancellationToken).ConfigureAwait(false);
                     return ReauthResult.Ok;
                 }
-                case "microsoft.graph":
+                case ProviderIds.MicrosoftGraph:
                 {
                     if (string.IsNullOrWhiteSpace(_settings.MicrosoftClientId))
                     {
@@ -246,8 +243,8 @@ public sealed class AccountAuthService : IAccountAuthService
 
     private static SetupProviderKind KindOf(AccountEntity account) => account.ProviderId switch
     {
-        GmailEndpoints.ProviderId => SetupProviderKind.Gmail,
-        "microsoft.graph" => SetupProviderKind.Outlook,
+        ProviderIds.Gmail => SetupProviderKind.Gmail,
+        ProviderIds.MicrosoftGraph => SetupProviderKind.Outlook,
         _ => ProviderDetector.Detect(account.EmailAddress)?.Kind ?? SetupProviderKind.OtherImap
     };
 
@@ -257,13 +254,13 @@ public sealed class AccountAuthService : IAccountAuthService
         {
             return account.ProviderId switch
             {
-                GmailEndpoints.ProviderId => "Gmail 登录已失效，需要重新登录。",
-                "microsoft.graph" => "Microsoft 登录已失效，需要重新登录。",
+                ProviderIds.Gmail => "Gmail 登录已失效，需要重新登录。",
+                ProviderIds.MicrosoftGraph => "Microsoft 登录已失效，需要重新登录。",
                 _ => "服务器拒绝了保存的密码或授权码，需要重新输入。"
             };
         }
 
-        var stage = account.ProviderId == "microsoft.graph" ? SetupStage.Graph : SetupStage.Imap;
+        var stage = account.ProviderId == ProviderIds.MicrosoftGraph ? SetupStage.Graph : SetupStage.Imap;
         return SetupErrorClassifier.Classify(ex, KindOf(account), stage).Message;
     }
 }

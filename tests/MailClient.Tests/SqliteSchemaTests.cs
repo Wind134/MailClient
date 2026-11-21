@@ -85,18 +85,18 @@ public sealed class SqliteSchemaTests
         Assert.Single(folders);
         Assert.Equal(SpecialFolder.Inbox, folders[0].Special);
 
-        var listed = await db.ListMessagesAsync(folderId);
+        var listed = await db.QueryMessagesAsync(new MessageListFilter(FolderIds: [folderId]));
         Assert.Single(listed);
-        Assert.Contains("Alice", listed[0].From, StringComparison.Ordinal);
+        Assert.Contains("Alice", listed[0].FromName, StringComparison.Ordinal);
 
-        var hits = await db.SearchMessagesAsync("周报");
+        var hits = await db.QueryMessagesAsync(new MessageListFilter(SearchText: "周报"));
         Assert.True(hits.Count >= 1, "FTS should hit Chinese subject 周报");
         Assert.Equal(messageId, hits[0].Id);
 
-        var bodyHits = await db.SearchMessagesAsync("SQLite");
+        var bodyHits = await db.QueryMessagesAsync(new MessageListFilter(SearchText: "SQLite"));
         Assert.Single(bodyHits);
 
-        var pending = await db.ListPendingOutboxAsync();
+        var pending = await db.ListOutboxItemsAsync();
         Assert.Single(pending);
 
         var meta = await db.GetCredentialsMetaAsync(accountId);

@@ -6,7 +6,7 @@ using MailClient.ViewModels;
 namespace MailClient.Tests;
 
 /// <summary>同步在后台把服务器变化写进本地库之后，界面原地刷新：行对象、选中项都不重建。</summary>
-public class LiveRefreshTests
+public class RefreshInPlaceTests
 {
     private static readonly DateTimeOffset Now = new(2026, 10, 31, 10, 30, 0, TimeSpan.FromHours(8));
 

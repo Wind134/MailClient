@@ -606,7 +606,7 @@ public partial class App : Application
             }
             catch
             {
-                // ignore
+                // 忽略：失败不影响主流程
             }
         });
     }

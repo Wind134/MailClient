@@ -117,12 +117,12 @@ public static class MimeMessageMapper
             }
 
             // 跳过纯正文 text/plain / text/html（非附件）
-            if (!isAttachment && part.ContentType.IsMimeType("text", "plain"))
+            if (!isAttachment && part.ContentType?.IsMimeType("text", "plain") == true)
             {
                 continue;
             }
 
-            if (!isAttachment && part.ContentType.IsMimeType("text", "html"))
+            if (!isAttachment && part.ContentType?.IsMimeType("text", "html") == true)
             {
                 continue;
             }
@@ -176,6 +176,11 @@ public static class MimeMessageMapper
                            (string.Equals(cid, fileName, StringComparison.OrdinalIgnoreCase) ||
                             string.Equals(CidHtmlRewriter.NormalizeContentId(cid), wantCid, StringComparison.OrdinalIgnoreCase));
             if (!nameMatch && !cidMatch)
+            {
+                continue;
+            }
+
+            if (part.Content is null)
             {
                 continue;
             }

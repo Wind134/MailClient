@@ -370,7 +370,7 @@ public class ShellReloginTests
         var tmp = await TempDb.CreateAsync();
         var id = Guid.NewGuid();
         var now = DateTimeOffset.UtcNow;
-        await tmp.Database.UpsertAccountAsync(new AccountEntity(id, "平的Gmail", "someone@example.test", GmailEndpoints.ProviderId, AuthKind.OAuth, now, now, null, true));
+        await tmp.Database.UpsertAccountAsync(new AccountEntity(id, "平的Gmail", "someone@example.test", ProviderIds.Gmail, AuthKind.OAuth, now, now, null, true));
         var dir = new TempDir();
         var settings = new AppSettingsStore(Path.Combine(dir.Path, "settings.json"));
         settings.Update(s => s.DemoDataDismissed = true);

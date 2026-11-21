@@ -8,7 +8,6 @@ namespace MailClient.Storage;
 /// <summary>草稿的完整状态（drafts 表）；列表里的那一行仍是 messages 里 id 为 "draft:{id}" 的邮件。</summary>
 public sealed partial class MailDatabase
 {
-    public const string DraftMessagePrefix = "draft:";
 
     /// <summary>本地草稿被保存或删除（可能在后台线程触发）；UI 据此刷新草稿列表与计数。</summary>
     public event EventHandler? DraftsChanged;
@@ -131,7 +130,7 @@ public sealed partial class MailDatabase
             }
 
             await NonQueryAsync(connection, transaction, "DELETE FROM drafts WHERE Id = $id;", ("$id", draftId), ct).ConfigureAwait(false);
-            await NonQueryAsync(connection, transaction, "DELETE FROM messages WHERE Id = $id;", ("$id", DraftMessagePrefix + draftId), ct).ConfigureAwait(false);
+            await NonQueryAsync(connection, transaction, "DELETE FROM messages WHERE Id = $id;", ("$id", MailIds.DraftMessagePrefix + draftId), ct).ConfigureAwait(false);
             await RecalculateFolderCountsCoreAsync(connection, ct).ConfigureAwait(false);
             await transaction.CommitAsync(ct).ConfigureAwait(false);
         }, cancellationToken).ConfigureAwait(false);
@@ -161,4 +160,12 @@ public sealed partial class MailDatabase
             SourceMessageId: S(r, 13),
             UpdatedAt: SqliteHelpers.ParseDate(S(r, 14)));
     }
+
+    /// <inheritdoc />
+    public Task SeedDemoDataIfEmptyAsync(CancellationToken cancellationToken = default)
+        => Demo.DemoDataSeeder.SeedIfEmptyAsync(this, now: null, cancellationToken);
+
+    /// <inheritdoc />
+    public Task ClearDemoDataAsync(CancellationToken cancellationToken = default)
+        => Demo.DemoDataSeeder.ClearDemoDataAsync(this, cancellationToken);
 }

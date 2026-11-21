@@ -834,7 +834,7 @@ public sealed partial class AddAccountViewModel : ObservableObject
         }
         catch
         {
-            // ignore
+            // 忽略
         }
     }
 

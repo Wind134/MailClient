@@ -1,4 +1,22 @@
 <Project>
+
+  <!-- 全仓库统一的编译约束。项目级 csproj 只保留与该工程强相关的设置。 -->
+  <PropertyGroup>
+    <LangVersion>12</LangVersion>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <!--
+      latest-recommended 会在本仓库产生 700+ 条建议（多为命名/性能微优化），
+      一次性清零不现实、留着又会训练人们忽略警告。这里取默认级别，
+      再把真正关心的规则在 .editorconfig 里逐条提升为 warning 或 error。
+    -->
+    <AnalysisLevel>latest</AnalysisLevel>
+    <AnalysisMode>Default</AnalysisMode>
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
+    <!-- 当前编译器与默认级别分析器的警告数已为 0，从此刻起新增警告直接失败。 -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
   <!-- 全仓库唯一的版本号来源；scripts/build-installer.ps1 与 CI 也读这里。 -->
   <PropertyGroup>
     <MailClientVersion>1.0.18.0</MailClientVersion>
@@ -10,4 +28,5 @@
     <Product>邮件</Product>
     <Company>MailClient</Company>
   </PropertyGroup>
+
 </Project>

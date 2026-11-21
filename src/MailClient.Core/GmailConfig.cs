@@ -46,7 +46,6 @@ public static class GmailEndpoints
     public const string RevocationEndpoint = "https://oauth2.googleapis.com/revoke";
     public const string UserInfoEndpoint = "https://openidconnect.googleapis.com/v1/userinfo";
 
-    public const string ProviderId = "gmail.oauth";
     public const string ImapHost = "imap.gmail.com";
     public const int ImapPort = 993;
     public const string SmtpHost = "smtp.gmail.com";

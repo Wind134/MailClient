@@ -6,32 +6,69 @@ using MailClient.Providers.Imap;
 
 namespace MailClient.Providers.Setup;
 
-/// <summary>一个账号的已构造好的底层提供商（IMAP 或 Graph）及其需要一并释放的令牌获取器。</summary>
+/// <summary>底层通道类型。两种协议的能力差异很大，用它来表达“是哪一种”，而不是靠两个可空属性互相排除。</summary>
+public enum ProviderKind
+{
+    /// <summary>IMAP 收 + SMTP 发（Gmail 也走这条通道）。</summary>
+    Imap,
+
+    /// <summary>Microsoft Graph HTTP API。</summary>
+    Graph
+}
+
+/// <summary>
+/// 一个账号已构造好的底层提供商，以及需要一并释放的令牌获取器。
+/// 只能通过 <see cref="ForImap"/> / <see cref="ForGraph"/> 构造，因此不存在“两个都为空”或“两个都有”的非法状态。
+/// </summary>
 public sealed class ProviderHandle : IAsyncDisposable
 {
+    private readonly GenericImapProvider? _imap;
+    private readonly MicrosoftGraphProvider? _graph;
     private readonly IDisposable? _owned;
 
-    public ProviderHandle(GenericImapProvider? imap, MicrosoftGraphProvider? graph, IDisposable? owned = null)
+    private ProviderHandle(ProviderKind kind, GenericImapProvider? imap, MicrosoftGraphProvider? graph, IDisposable? owned)
     {
-        Imap = imap;
-        Graph = graph;
+        Kind = kind;
+        _imap = imap;
+        _graph = graph;
         _owned = owned;
     }
 
-    public GenericImapProvider? Imap { get; }
+    public static ProviderHandle ForImap(GenericImapProvider imap, IDisposable? owned = null)
+    {
+        ArgumentNullException.ThrowIfNull(imap);
+        return new ProviderHandle(ProviderKind.Imap, imap, null, owned);
+    }
 
-    public MicrosoftGraphProvider? Graph { get; }
+    public static ProviderHandle ForGraph(MicrosoftGraphProvider graph, IDisposable? owned = null)
+    {
+        ArgumentNullException.ThrowIfNull(graph);
+        return new ProviderHandle(ProviderKind.Graph, null, graph, owned);
+    }
+
+    public ProviderKind Kind { get; }
+
+    /// <summary>IMAP 通道支持 IDLE 推送；Graph 桌面端收不到 webhook，只能轮询。</summary>
+    public bool SupportsIdle => Kind == ProviderKind.Imap;
+
+    /// <summary>IMAP 提供商。账号不是 IMAP 通道时立即抛异常，而不是把空值散给调用方。</summary>
+    public GenericImapProvider Imap => _imap
+        ?? throw new InvalidOperationException($"该账号是 {Kind} 通道，没有 IMAP 提供商。");
+
+    /// <summary>Graph 提供商。账号不是 Graph 通道时立即抛异常。</summary>
+    public MicrosoftGraphProvider Graph => _graph
+        ?? throw new InvalidOperationException($"该账号是 {Kind} 通道，没有 Graph 提供商。");
 
     public async ValueTask DisposeAsync()
     {
-        if (Imap is not null)
+        if (_imap is not null)
         {
-            await Imap.DisposeAsync().ConfigureAwait(false);
+            await _imap.DisposeAsync().ConfigureAwait(false);
         }
 
-        if (Graph is not null)
+        if (_graph is not null)
         {
-            await Graph.DisposeAsync().ConfigureAwait(false);
+            await _graph.DisposeAsync().ConfigureAwait(false);
         }
 
         _owned?.Dispose();
@@ -60,7 +97,7 @@ public sealed class AccountProviderFactory
     {
         switch (account.ProviderId)
         {
-            case "microsoft.graph":
+            case ProviderIds.MicrosoftGraph:
             {
                 var clientId = _settings.MicrosoftClientId;
                 if (string.IsNullOrWhiteSpace(clientId))
@@ -71,9 +108,9 @@ public sealed class AccountProviderFactory
                 var config = new MicrosoftGraphAccountConfig(
                     account.Id, account.EmailAddress, account.DisplayName, clientId, _settings.MicrosoftTenantId);
                 var acquirer = new MicrosoftGraphTokenAcquirer(config, _store, windowHandleProvider: _windowHandle);
-                return new ProviderHandle(null, new MicrosoftGraphProvider(config, acquirer));
+                return ProviderHandle.ForGraph(new MicrosoftGraphProvider(config, acquirer));
             }
-            case Outbox.SentCopyPolicy.GmailProviderId:
+            case ProviderIds.Gmail:
             {
                 var clientId = _settings.GmailClientId;
                 if (string.IsNullOrWhiteSpace(clientId))
@@ -84,7 +121,7 @@ public sealed class AccountProviderFactory
                 var config = new GmailAccountConfig(account.Id, account.EmailAddress, account.DisplayName, clientId, _settings.GmailClientSecret);
                 var acquirer = new GmailTokenAcquirer(config, _store);
                 var gmail = new GmailProvider(config, acquirer);
-                return new ProviderHandle(gmail.Imap, null, acquirer);
+                return ProviderHandle.ForImap(gmail.Imap, acquirer);
             }
             default:
             {
@@ -98,7 +135,7 @@ public sealed class AccountProviderFactory
                 var config = new GenericImapAccountConfig(
                     account.Id, account.EmailAddress, account.DisplayName, connection.Imap, connection.Smtp,
                     AccountConnectionStore.ImapSecretKey(account.Id));
-                return new ProviderHandle(new GenericImapProvider(config, _store), null);
+                return ProviderHandle.ForImap(new GenericImapProvider(config, _store));
             }
         }
     }

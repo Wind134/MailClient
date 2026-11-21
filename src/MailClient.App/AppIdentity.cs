@@ -12,7 +12,7 @@ namespace MailClient_App;
 internal static class AppIdentity
 {
     /// <summary>免打包运行时的 AppUserModelID；开始菜单快捷方式、通知、任务栏分组都用它。必须和安装程序里的一致。</summary>
-    public const string UnpackagedAumid = "MailClient.Desktop";
+    public const string UnpackagedAumid = MailClient.Core.AppIdentifiers.Aumid;
 
     private static bool? _packaged;
 
@@ -58,9 +58,9 @@ internal static class AppIdentity
             return;
         }
 
-        if (!string.Equals(key.GetValue("DisplayName") as string, "邮件", StringComparison.Ordinal))
+        if (!string.Equals(key.GetValue("DisplayName") as string, MailClient.Core.AppIdentifiers.ProductName, StringComparison.Ordinal))
         {
-            key.SetValue("DisplayName", "邮件", RegistryValueKind.String);
+            key.SetValue("DisplayName", MailClient.Core.AppIdentifiers.ProductName, RegistryValueKind.String);
         }
 
         var icon = AssetPath("Square44x44Logo.scale-200.png");

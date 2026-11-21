@@ -22,7 +22,7 @@ public class SyncSchedulingTests
     [InlineData(9, 900)]
     [InlineData(500, 900)]
     public void Backoff_Grows_Exponentially_And_Caps(int failures, int expectedSeconds)
-        => Assert.Equal(TimeSpan.FromSeconds(expectedSeconds), SyncBackoff.DelayFor(failures, TimeSpan.FromSeconds(5), TimeSpan.FromMinutes(15)));
+        => Assert.Equal(TimeSpan.FromSeconds(expectedSeconds), Backoff.DelayFor(failures, TimeSpan.FromSeconds(5), TimeSpan.FromMinutes(15)));
 
     [Fact]
     public void Backoff_Success_Resets()
