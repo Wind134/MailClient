@@ -6,7 +6,8 @@ namespace MailClient.Core.Sending;
 /// </summary>
 public static class OutboxAttachmentStore
 {
-    public static string DirectoryFor(string root, string outboxId) => Path.Combine(root, outboxId);
+    public static string DirectoryFor(string root, string outboxId)
+        => Path.Combine(root, AttachmentDirectory.Sanitize(outboxId));
 
     public static IReadOnlyList<string> CopyIn(string root, string outboxId, IEnumerable<string> sourcePaths)
     {
@@ -21,13 +22,7 @@ public static class OutboxAttachmentStore
             }
 
             Directory.CreateDirectory(dir);
-            var name = Path.GetFileName(source);
-            var candidate = name;
-            for (var i = 2; !used.Add(candidate); i++)
-            {
-                candidate = $"{Path.GetFileNameWithoutExtension(name)} ({i}){Path.GetExtension(name)}";
-            }
-
+            var candidate = AttachmentDirectory.UniqueName(used, Path.GetFileName(source));
             var target = Path.Combine(dir, candidate);
             File.Copy(source, target, overwrite: true);
             result.Add(target);
@@ -43,20 +38,6 @@ public static class OutboxAttachmentStore
             return;
         }
 
-        try
-        {
-            var dir = DirectoryFor(root, outboxId);
-            if (Directory.Exists(dir))
-            {
-                Directory.Delete(dir, recursive: true);
-            }
-        }
-        catch (IOException)
-        {
-            // 清理失败不影响主流程
-        }
-        catch (UnauthorizedAccessException)
-        {
-        }
+        AttachmentDirectory.TryDeleteDirectory(DirectoryFor(root, outboxId));
     }
 }
