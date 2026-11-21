@@ -1,4 +1,4 @@
-# Shared helpers for the dev scripts (dot-sourced; not meant to be run directly).
+# 开发脚本共用的辅助定义（由其它脚本 dot-source 引入，不单独执行）。
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
@@ -17,13 +17,13 @@ function Get-OutDir([string]$Configuration, [string]$Platform) {
     Join-Path $AppDir "bin\$Platform\$Configuration\net8.0-windows10.0.26100.0\$rid"
 }
 
-# Switching between packaged / unpackaged / framework-dependent in the same obj+bin leaves stale
-# artefacts (runtimeconfig.json, AppxManifest.xml, ...). Remember the last mode and wipe on change.
+# 在同一份 obj+bin 里切换「打包 / 免打包 / 框架依赖」会残留过时产物
+#（runtimeconfig.json、AppxManifest.xml 等）。记住上次的构建模式，变了就清空。
 function Set-BuildMode([string]$Mode) {
     $marker = Join-Path $AppDir 'obj\.build-mode'
     $last = if (Test-Path $marker) { (Get-Content $marker -Raw).Trim() } else { '' }
     if ($last -ne $Mode) {
-        if ($last) { Write-Host "Build mode changed ($last -> $Mode): cleaning src\MailClient.App\obj and bin" -ForegroundColor Yellow }
+        if ($last) { Write-Host "构建模式变更（$last -> $Mode）：清理 src\MailClient.App 的 obj 与 bin" -ForegroundColor Yellow }
         foreach ($d in 'obj', 'bin') {
             $p = Join-Path $AppDir $d
             if (Test-Path $p) { Remove-Item $p -Recurse -Force }
@@ -36,7 +36,7 @@ function Set-BuildMode([string]$Mode) {
 function Invoke-AppBuild([string[]]$Extra, [string]$Configuration, [string]$Platform) {
     Write-Host "dotnet build $($Extra -join ' ')" -ForegroundColor Cyan
     & dotnet build $AppProj -c $Configuration "-p:Platform=$Platform" @Extra --nologo -v:q
-    if ($LASTEXITCODE -ne 0) { throw "dotnet build failed (exit $LASTEXITCODE)." }
+    if ($LASTEXITCODE -ne 0) { throw "dotnet build 失败（退出码 $LASTEXITCODE）。" }
 }
 
 function Test-DeveloperMode {
@@ -44,7 +44,7 @@ function Test-DeveloperMode {
     return ($null -ne $v -and $v.AllowDevelopmentWithoutDevLicense -eq 1)
 }
 
-# Reads the framework dependency from the generated AppxManifest and reports what is installed.
+# 从生成的 AppxManifest 里读出框架依赖，并报告本机已安装的版本。
 function Get-RuntimeDependency([string]$ManifestPath, [string]$Platform) {
     [xml]$m = Get-Content $ManifestPath -Raw -Encoding UTF8
     $ns = New-Object Xml.XmlNamespaceManager($m.NameTable)
@@ -60,6 +60,6 @@ function Get-RuntimeDependency([string]$ManifestPath, [string]$Platform) {
 
 function Start-AppWithAumid([string]$PackageFamilyName, [string]$AppId = 'App') {
     $aumid = "$PackageFamilyName!$AppId"
-    Write-Host "Launching shell:AppsFolder\$aumid" -ForegroundColor Cyan
+    Write-Host "启动 shell:AppsFolder\$aumid" -ForegroundColor Cyan
     Start-Process explorer.exe "shell:AppsFolder\$aumid"
 }

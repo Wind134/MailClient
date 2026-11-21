@@ -31,7 +31,7 @@ public sealed partial class GenericImapProvider : IImapSyncSource
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            // best effort：退回 CONDSTORE
+            // 尽力而为：退回 CONDSTORE
         }
     }
 

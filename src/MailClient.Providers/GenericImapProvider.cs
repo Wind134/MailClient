@@ -162,7 +162,7 @@ public sealed partial class GenericImapProvider : IMailProvider, IAsyncDisposabl
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            // best effort
+            // 尽力而为：失败不影响主流程
         }
     }
 
@@ -218,7 +218,7 @@ public sealed partial class GenericImapProvider : IMailProvider, IAsyncDisposabl
                 }
                 catch
                 {
-                    // ignore
+                    // 忽略
                 }
             }
         }
@@ -688,7 +688,7 @@ public sealed partial class GenericImapProvider : IMailProvider, IAsyncDisposabl
         }
         catch
         {
-            // ignore disconnect errors
+            // 断开连接失败可忽略
         }
 
         _imap.Dispose();

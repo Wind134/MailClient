@@ -190,7 +190,7 @@ public sealed class MicrosoftGraphTokenAcquirer
             }
             catch (MsalUiRequiredException)
             {
-                // fall through to interactive
+                // 落到下面的交互登录
             }
         }
         else if (!allowInteractive)

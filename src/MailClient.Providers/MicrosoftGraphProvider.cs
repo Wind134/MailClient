@@ -68,7 +68,7 @@ public sealed class MicrosoftGraphProvider : IMailProvider, IGraphDeltaSource, I
             }
             catch
             {
-                // ignore probe errors
+                // 探测失败可忽略
             }
 
             _folderCache = null;

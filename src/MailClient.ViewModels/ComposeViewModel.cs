@@ -315,7 +315,7 @@ public sealed partial class ComposeViewModel : ObservableObject
             }
             catch (Exception)
             {
-                // ignore
+                // 忽略
             }
         }
     }

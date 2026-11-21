@@ -306,7 +306,7 @@ public sealed class AccountSetupService : IAccountSetupService
         }
         catch
         {
-            // ignore
+            // 忽略
         }
 
         await _connections.DeleteAllAsync(accountId, CancellationToken.None).ConfigureAwait(false);
