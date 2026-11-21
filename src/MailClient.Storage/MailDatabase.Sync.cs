@@ -131,7 +131,7 @@ public sealed partial class MailDatabase
             }
 
             await using var transaction = (SqliteTransaction)await connection.BeginTransactionAsync(ct).ConfigureAwait(false);
-            foreach (var chunk in uids.Distinct().Chunk(400))
+            foreach (var chunk in uids.Distinct().Chunk(SqliteHelpers.MaxParametersPerStatement))
             {
                 var names = new List<string>();
                 await using var q = Cmd(connection, transaction, "");

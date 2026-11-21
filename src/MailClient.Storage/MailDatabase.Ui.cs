@@ -331,7 +331,7 @@ public sealed partial class MailDatabase
         => QueryAsync(async (connection, ct) =>
         {
             var result = new Dictionary<string, string>();
-            foreach (var chunk in messageIds.Chunk(500))
+            foreach (var chunk in messageIds.Chunk(SqliteHelpers.MaxParametersPerStatement))
             {
                 await using var command = connection.CreateCommand();
                 var names = new List<string>();
