@@ -390,25 +390,45 @@ public sealed partial class MailDatabase
             await transaction.CommitAsync(ct).ConfigureAwait(false);
         }, cancellationToken);
 
-    /// <summary>写入“本地生成的已发送副本”（LocalState=1）。服务器同步到真正的副本后会自动取代它。</summary>
-    public async Task UpsertLocalSentCopyAsync(MessageEntity message, IEnumerable<RecipientEntity> recipients, IEnumerable<AttachmentEntity> attachments, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// 写入“本地生成的已发送副本”（LocalState=1）。服务器同步到真正的副本后会自动取代它。
+    /// 正文、收件人、附件必须同属一个事务：否则中途失败会留下“已发送但没有收件人”的残缺副本。
+    /// </summary>
+    public async Task UpsertLocalSentCopyAsync(
+        MessageEntity message,
+        IEnumerable<RecipientEntity> recipients,
+        IEnumerable<AttachmentEntity> attachments,
+        CancellationToken cancellationToken = default)
     {
-        await UpsertMessageAsync(message, cancellationToken).ConfigureAwait(false);
+        var recipientList = recipients.ToList();
+        var attachmentList = attachments.ToList();
         await ExecuteAsync(async (connection, ct) =>
         {
-            await NonQueryAsync(connection, null, "UPDATE messages SET LocalState = 1 WHERE Id = $id;", ("$id", message.Id), ct).ConfigureAwait(false);
-            await NonQueryAsync(connection, null, "DELETE FROM recipients WHERE MessageId = $id;", ("$id", message.Id), ct).ConfigureAwait(false);
-            await RecalculateFolderCountsCoreAsync(connection, ct).ConfigureAwait(false);
-        }, cancellationToken).ConfigureAwait(false);
-        foreach (var r in recipients)
-        {
-            await UpsertRecipientAsync(r with { Id = 0, MessageId = message.Id }, cancellationToken).ConfigureAwait(false);
-        }
+            await using var transaction = (SqliteTransaction)await connection.BeginTransactionAsync(ct).ConfigureAwait(false);
+            await UpsertMessageCoreAsync(connection, transaction, message, ct).ConfigureAwait(false);
 
-        foreach (var a in attachments)
-        {
-            await UpsertAttachmentAsync(a with { MessageId = message.Id }, cancellationToken).ConfigureAwait(false);
-        }
+            await using (var stamp = connection.CreateCommand())
+            {
+                stamp.Transaction = transaction;
+                stamp.CommandText = "UPDATE messages SET LocalState = 1 WHERE Id = $id; DELETE FROM recipients WHERE MessageId = $id;";
+                stamp.Parameters.AddParam("$id", message.Id);
+                await stamp.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+            }
+
+            foreach (var recipient in recipientList)
+            {
+                await UpsertRecipientCoreAsync(connection, transaction, recipient with { Id = 0, MessageId = message.Id }, ct).ConfigureAwait(false);
+            }
+
+            foreach (var attachment in attachmentList)
+            {
+                await UpsertAttachmentCoreAsync(connection, transaction, attachment with { MessageId = message.Id }, ct).ConfigureAwait(false);
+            }
+
+            await transaction.CommitAsync(ct).ConfigureAwait(false);
+        }, cancellationToken).ConfigureAwait(false);
+
+        await RecalculateFolderCountsAsync(cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>邮件在服务器上的定位信息（IMAP：UID；Graph：消息 Id），供发件箱把副本 UID 回填等场景使用。</summary>

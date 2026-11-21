@@ -5,11 +5,20 @@ using Microsoft.Data.Sqlite;
 namespace MailClient.Storage;
 
 /// <summary>SQLite 本地库：迁移、账号/文件夹/邮件/发件箱与 FTS 搜索。</summary>
+/// <remarks>
+/// 并发模型：全库共用一条连接，所有访问都必须经过 <c>ExecuteAsync</c> / <c>QueryAsync</c>
+/// 取得 <c>_gate</c> 后串行执行。<see cref="SqliteConnection"/> 不是线程安全的，绕过门直接碰 <c>_connection</c>
+/// 会让一个线程的 Dispose/Open 拆掉另一个线程正在执行的读取器。
+/// </remarks>
 public sealed partial class MailDatabase : IAsyncDisposable
 {
+    /// <summary>其他进程持锁时的等待上限（毫秒），避免立刻抛 SQLITE_BUSY。</summary>
+    private const int BusyTimeoutMs = 5000;
+
     private readonly string _connectionString;
     private SqliteConnection? _connection;
     private readonly SemaphoreSlim _gate = new(1, 1);
+    private bool _disposed;
 
     public string DatabasePath { get; }
 
@@ -32,18 +41,34 @@ public sealed partial class MailDatabase : IAsyncDisposable
             Directory.CreateDirectory(directory);
         }
 
-        var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        await using (var command = connection.CreateCommand())
+        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
         {
-            command.CommandText = SchemaV1.Sql;
-            await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+            var connection = await EnsureConnectionLockedAsync(cancellationToken).ConfigureAwait(false);
+            await using (var command = connection.CreateCommand())
+            {
+                command.CommandText = SchemaV1.Sql;
+                await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+            }
+
+            // WAL 是持久化属性：只需设置一次，之后每次打开自动生效。
+            // 相比默认的回滚日志，读写不互相阻塞，崩溃恢复也更快；配合 synchronous=NORMAL 才有意义。
+            await using (var wal = connection.CreateCommand())
+            {
+                wal.CommandText = "PRAGMA journal_mode = WAL;";
+                await wal.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
+            }
+
+            await MigrateAsync(connection, cancellationToken).ConfigureAwait(false);
+
+            await using var probe = connection.CreateCommand();
+            probe.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE name = 'messages_trgm';";
+            SupportsTrigram = Convert.ToInt32(await probe.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false)) > 0;
         }
-
-        await MigrateAsync(connection, cancellationToken).ConfigureAwait(false);
-
-        await using var probe = connection.CreateCommand();
-        probe.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE name = 'messages_trgm';";
-        SupportsTrigram = Convert.ToInt32(await probe.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false)) > 0;
+        finally
+        {
+            _gate.Release();
+        }
     }
 
     /// <summary>trigram 全文索引（messages_trgm）是否可用；不可用时搜索自动降级为 LIKE。</summary>
@@ -144,14 +169,14 @@ public sealed partial class MailDatabase : IAsyncDisposable
         }
     }
 
-    public async Task<int> GetSchemaVersionAsync(CancellationToken cancellationToken = default)
-    {
-        var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        await using var command = connection.CreateCommand();
-        command.CommandText = "SELECT COALESCE(MAX(version), 0) FROM schema_version;";
-        var result = await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
-        return Convert.ToInt32(result);
-    }
+    public Task<int> GetSchemaVersionAsync(CancellationToken cancellationToken = default)
+        => QueryAsync(async (connection, ct) =>
+        {
+            await using var command = connection.CreateCommand();
+            command.CommandText = "SELECT COALESCE(MAX(version), 0) FROM schema_version;";
+            var result = await command.ExecuteScalarAsync(ct).ConfigureAwait(false);
+            return Convert.ToInt32(result);
+        }, cancellationToken);
 
     public Task UpsertAccountAsync(AccountEntity account, CancellationToken cancellationToken = default)
         => ExecuteAsync(async (connection, ct) =>
@@ -343,59 +368,73 @@ public sealed partial class MailDatabase : IAsyncDisposable
         }, cancellationToken);
 
     public Task UpsertRecipientAsync(RecipientEntity recipient, CancellationToken cancellationToken = default)
-        => ExecuteAsync(async (connection, ct) =>
-        {
-            await using var command = connection.CreateCommand();
-            if (recipient.Id > 0)
-            {
-                command.CommandText = """
-                    UPDATE recipients SET MessageId = $messageId, Kind = $kind, Address = $address, Name = $name
-                    WHERE Id = $id;
-                    """;
-                command.Parameters.AddParam("$id", recipient.Id);
-            }
-            else
-            {
-                command.CommandText = """
-                    INSERT INTO recipients (MessageId, Kind, Address, Name)
-                    VALUES ($messageId, $kind, $address, $name);
-                    """;
-            }
+        => ExecuteAsync((connection, ct) => UpsertRecipientCoreAsync(connection, null, recipient, ct), cancellationToken);
 
-            command.Parameters.AddParam("$messageId", recipient.MessageId);
-            command.Parameters.AddParam("$kind", SqliteHelpers.EnumName(recipient.Kind));
-            command.Parameters.AddParam("$address", recipient.Address);
-            command.Parameters.AddParam("$name", recipient.Name);
-            await command.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
-        }, cancellationToken);
+    private static async Task UpsertRecipientCoreAsync(
+        SqliteConnection connection,
+        SqliteTransaction? transaction,
+        RecipientEntity recipient,
+        CancellationToken ct)
+    {
+        await using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        if (recipient.Id > 0)
+        {
+            command.CommandText = """
+                UPDATE recipients SET MessageId = $messageId, Kind = $kind, Address = $address, Name = $name
+                WHERE Id = $id;
+                """;
+            command.Parameters.AddParam("$id", recipient.Id);
+        }
+        else
+        {
+            command.CommandText = """
+                INSERT INTO recipients (MessageId, Kind, Address, Name)
+                VALUES ($messageId, $kind, $address, $name);
+                """;
+        }
+
+        command.Parameters.AddParam("$messageId", recipient.MessageId);
+        command.Parameters.AddParam("$kind", SqliteHelpers.EnumName(recipient.Kind));
+        command.Parameters.AddParam("$address", recipient.Address);
+        command.Parameters.AddParam("$name", recipient.Name);
+        await command.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+    }
 
     public Task UpsertAttachmentAsync(AttachmentEntity attachment, CancellationToken cancellationToken = default)
-        => ExecuteAsync(async (connection, ct) =>
-        {
-            await using var command = connection.CreateCommand();
-            command.CommandText = """
-                INSERT INTO attachments (Id, MessageId, FileName, ContentType, SizeBytes, ContentId, IsInline, LocalPath, RemoteId)
-                VALUES ($id, $messageId, $fileName, $contentType, $size, $contentId, $isInline, $localPath, $remoteId)
-                ON CONFLICT(Id) DO UPDATE SET
-                    FileName = excluded.FileName,
-                    ContentType = excluded.ContentType,
-                    SizeBytes = excluded.SizeBytes,
-                    ContentId = excluded.ContentId,
-                    IsInline = excluded.IsInline,
-                    LocalPath = COALESCE(excluded.LocalPath, attachments.LocalPath),
-                    RemoteId = COALESCE(excluded.RemoteId, attachments.RemoteId);
-                """;
-            command.Parameters.AddParam("$id", attachment.Id);
-            command.Parameters.AddParam("$messageId", attachment.MessageId);
-            command.Parameters.AddParam("$fileName", attachment.FileName);
-            command.Parameters.AddParam("$contentType", attachment.ContentType);
-            command.Parameters.AddParam("$size", attachment.SizeBytes);
-            command.Parameters.AddParam("$contentId", attachment.ContentId);
-            command.Parameters.AddParam("$isInline", attachment.IsInline ? 1 : 0);
-            command.Parameters.AddParam("$localPath", attachment.LocalPath);
-            command.Parameters.AddParam("$remoteId", attachment.RemoteId);
-            await command.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
-        }, cancellationToken);
+        => ExecuteAsync((connection, ct) => UpsertAttachmentCoreAsync(connection, null, attachment, ct), cancellationToken);
+
+    private static async Task UpsertAttachmentCoreAsync(
+        SqliteConnection connection,
+        SqliteTransaction? transaction,
+        AttachmentEntity attachment,
+        CancellationToken ct)
+    {
+        await using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = """
+            INSERT INTO attachments (Id, MessageId, FileName, ContentType, SizeBytes, ContentId, IsInline, LocalPath, RemoteId)
+            VALUES ($id, $messageId, $fileName, $contentType, $size, $contentId, $isInline, $localPath, $remoteId)
+            ON CONFLICT(Id) DO UPDATE SET
+                FileName = excluded.FileName,
+                ContentType = excluded.ContentType,
+                SizeBytes = excluded.SizeBytes,
+                ContentId = excluded.ContentId,
+                IsInline = excluded.IsInline,
+                LocalPath = COALESCE(excluded.LocalPath, attachments.LocalPath),
+                RemoteId = COALESCE(excluded.RemoteId, attachments.RemoteId);
+            """;
+        command.Parameters.AddParam("$id", attachment.Id);
+        command.Parameters.AddParam("$messageId", attachment.MessageId);
+        command.Parameters.AddParam("$fileName", attachment.FileName);
+        command.Parameters.AddParam("$contentType", attachment.ContentType);
+        command.Parameters.AddParam("$size", attachment.SizeBytes);
+        command.Parameters.AddParam("$contentId", attachment.ContentId);
+        command.Parameters.AddParam("$isInline", attachment.IsInline ? 1 : 0);
+        command.Parameters.AddParam("$localPath", attachment.LocalPath);
+        command.Parameters.AddParam("$remoteId", attachment.RemoteId);
+        await command.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+    }
 
     public Task UpsertCredentialsMetaAsync(CredentialsMetaEntity meta, CancellationToken cancellationToken = default)
         => ExecuteAsync(async (connection, ct) =>
@@ -428,28 +467,60 @@ public sealed partial class MailDatabase : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        if (_connection is not null)
+        await _gate.WaitAsync().ConfigureAwait(false);
+        try
         {
-            await _connection.DisposeAsync().ConfigureAwait(false);
-            _connection = null;
+            if (_disposed)
+            {
+                return;
+            }
+
+            _disposed = true;
+            if (_connection is not null)
+            {
+                await _connection.DisposeAsync().ConfigureAwait(false);
+                _connection = null;
+            }
+        }
+        finally
+        {
+            _gate.Release();
         }
     }
 
-    private async Task<SqliteConnection> OpenConnectionAsync(CancellationToken cancellationToken)
+    /// <summary>
+    /// 取得已打开的共享连接。<b>调用方必须已持有 <see cref="_gate"/>。</b>
+    /// </summary>
+    private async Task<SqliteConnection> EnsureConnectionLockedAsync(CancellationToken cancellationToken)
     {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
         if (_connection is { State: System.Data.ConnectionState.Open })
         {
             return _connection;
         }
 
-        _connection?.Dispose();
-        _connection = new SqliteConnection(_connectionString);
-        await _connection.OpenAsync(cancellationToken).ConfigureAwait(false);
-        await using var pragma = _connection.CreateCommand();
-        // auto_vacuum=INCREMENTAL：新库建表前生效；老库要等一次 VACUUM（后台维护里做）才会转换，之后删数据腾出的页可以用 incremental_vacuum 还给磁盘。
-        pragma.CommandText = "PRAGMA foreign_keys = ON; PRAGMA auto_vacuum = INCREMENTAL;";
-        await pragma.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
-        return _connection;
+        if (_connection is not null)
+        {
+            await _connection.DisposeAsync().ConfigureAwait(false);
+        }
+
+        var connection = new SqliteConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+        await using (var pragma = connection.CreateCommand())
+        {
+            // auto_vacuum=INCREMENTAL 只在建表前生效；老库要等一次 VACUUM（后台维护里做）才会转换。
+            // busy_timeout：第二个实例 / 杀软 / 备份持锁时等待，而不是立刻把 SQLITE_BUSY 抛给界面。
+            pragma.CommandText =
+                "PRAGMA foreign_keys = ON; " +
+                "PRAGMA auto_vacuum = INCREMENTAL; " +
+                $"PRAGMA busy_timeout = {BusyTimeoutMs}; " +
+                "PRAGMA synchronous = NORMAL;";
+            await pragma.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        _connection = connection;
+        return connection;
     }
 
     private async Task ExecuteAsync(Func<SqliteConnection, CancellationToken, Task> action, CancellationToken cancellationToken)
@@ -458,7 +529,7 @@ public sealed partial class MailDatabase : IAsyncDisposable
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+            var connection = await EnsureConnectionLockedAsync(cancellationToken).ConfigureAwait(false);
             await action(connection, cancellationToken).ConfigureAwait(false);
         }
         finally
@@ -472,7 +543,7 @@ public sealed partial class MailDatabase : IAsyncDisposable
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+            var connection = await EnsureConnectionLockedAsync(cancellationToken).ConfigureAwait(false);
             return await action(connection, cancellationToken).ConfigureAwait(false);
         }
         finally
@@ -480,6 +551,7 @@ public sealed partial class MailDatabase : IAsyncDisposable
             _gate.Release();
         }
     }
+
     private static void BindMessage(SqliteCommand command, MessageEntity message)
     {
         command.Parameters.AddParam("$id", message.Id);
