@@ -38,7 +38,7 @@ public static class SearchQueryParser
             if (text[i] == '"')
             {
                 var phrase = ReadQuoted(text, ref i);
-                AddTerm(terms, SearchField.Any, phrase, isPhrase: true);
+                AddTerm(terms, SearchField.Any, phrase);
                 continue;
             }
 
@@ -62,7 +62,7 @@ public static class SearchQueryParser
             if (colon < 0)
             {
                 // 普通词（i 已到词尾）
-                AddTerm(terms, SearchField.Any, text[start..i], isPhrase: false);
+                AddTerm(terms, SearchField.Any, text[start..i]);
                 continue;
             }
 
@@ -77,17 +77,15 @@ public static class SearchQueryParser
                     i++;
                 }
 
-                AddTerm(terms, SearchField.Any, text[start..i], isPhrase: false);
+                AddTerm(terms, SearchField.Any, text[start..i]);
                 continue;
             }
 
             i = colon + 1;
             string value;
-            var quoted = false;
             if (i < text.Length && text[i] == '"')
             {
                 value = ReadQuoted(text, ref i);
-                quoted = true;
             }
             else
             {
@@ -109,13 +107,13 @@ public static class SearchQueryParser
             switch (op)
             {
                 case "from":
-                    AddTerm(terms, SearchField.From, value, quoted);
+                    AddTerm(terms, SearchField.From, value);
                     break;
                 case "to":
-                    AddTerm(terms, SearchField.To, value, quoted);
+                    AddTerm(terms, SearchField.To, value);
                     break;
                 case "subject":
-                    AddTerm(terms, SearchField.Subject, value, quoted);
+                    AddTerm(terms, SearchField.Subject, value);
                     break;
                 case "has":
                     if (IsAttachmentWord(value))
@@ -124,14 +122,14 @@ public static class SearchQueryParser
                     }
                     else
                     {
-                        AddTerm(terms, SearchField.Any, $"{text[start..colon]}:{value}", false);
+                        AddTerm(terms, SearchField.Any, $"{text[start..colon]}:{value}");
                     }
 
                     break;
                 case "is":
                     if (!TryApplyState(value, ref unread, ref flagged))
                     {
-                        AddTerm(terms, SearchField.Any, $"{text[start..colon]}:{value}", false);
+                        AddTerm(terms, SearchField.Any, $"{text[start..colon]}:{value}");
                     }
 
                     break;
@@ -150,7 +148,7 @@ public static class SearchQueryParser
                     }
                     else
                     {
-                        AddTerm(terms, SearchField.Any, $"{text[start..colon]}:{value}", false);
+                        AddTerm(terms, SearchField.Any, $"{text[start..colon]}:{value}");
                     }
 
                     break;
@@ -183,12 +181,12 @@ public static class SearchQueryParser
         return value;
     }
 
-    private static void AddTerm(List<SearchTerm> terms, SearchField field, string text, bool isPhrase)
+    private static void AddTerm(List<SearchTerm> terms, SearchField field, string text)
     {
         var trimmed = text.Trim();
         if (trimmed.Length > 0)
         {
-            terms.Add(new SearchTerm(field, trimmed, isPhrase));
+            terms.Add(new SearchTerm(field, trimmed));
         }
     }
 

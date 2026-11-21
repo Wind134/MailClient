@@ -321,25 +321,6 @@ public sealed partial class MailDatabase : IAsyncDisposable
         await command.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
     }
 
-    public Task<IReadOnlyList<MailMessageSummary>> ListMessagesAsync(
-        string folderId,
-        int limit = 50,
-        CancellationToken cancellationToken = default)
-        => QueryAsync(async (connection, ct) =>
-        {
-            await using var command = connection.CreateCommand();
-            command.CommandText = """
-                SELECT Id, FolderId, Subject, FromName, FromAddress, ReceivedAt, IsRead, IsFlagged, Preview
-                FROM messages
-                WHERE FolderId = $folderId
-                ORDER BY ReceivedAt DESC
-                LIMIT $limit;
-                """;
-            command.Parameters.AddParam("$folderId", folderId);
-            command.Parameters.AddParam("$limit", limit);
-            return await ReadSummariesAsync(command, ct).ConfigureAwait(false);
-        }, cancellationToken);
-
     public Task<MessageEntity?> GetMessageAsync(string messageId, CancellationToken cancellationToken = default)
         => QueryAsync(async (connection, ct) =>
         {
@@ -359,52 +340,6 @@ public sealed partial class MailDatabase : IAsyncDisposable
             }
 
             return ReadMessage(reader);
-        }, cancellationToken);
-
-    public Task<IReadOnlyList<MailMessageSummary>> SearchMessagesAsync(
-        string query,
-        int limit = 50,
-        CancellationToken cancellationToken = default)
-        => QueryAsync(async (connection, ct) =>
-        {
-            var trimmed = query.Trim();
-            if (string.IsNullOrEmpty(trimmed))
-            {
-                return Array.Empty<MailMessageSummary>();
-            }
-
-            await using var command = connection.CreateCommand();
-            // unicode61 常把连续 CJK 当成单一 token，子串 MATCH 无效；含 CJK 时改用 LIKE。
-            if (trimmed.Any(IsCjk))
-            {
-                command.CommandText = """
-                    SELECT Id, FolderId, Subject, FromName, FromAddress, ReceivedAt, IsRead, IsFlagged, Preview
-                    FROM messages
-                    WHERE Subject LIKE '%' || $query || '%'
-                       OR IFNULL(FromName, '') LIKE '%' || $query || '%'
-                       OR FromAddress LIKE '%' || $query || '%'
-                       OR Preview LIKE '%' || $query || '%'
-                       OR IFNULL(BodyText, '') LIKE '%' || $query || '%'
-                    ORDER BY ReceivedAt DESC
-                    LIMIT $limit;
-                    """;
-                command.Parameters.AddParam("$query", trimmed);
-            }
-            else
-            {
-                command.CommandText = """
-                    SELECT m.Id, m.FolderId, m.Subject, m.FromName, m.FromAddress, m.ReceivedAt, m.IsRead, m.IsFlagged, m.Preview
-                    FROM messages_fts f
-                    INNER JOIN messages m ON m.rowid = f.rowid
-                    WHERE messages_fts MATCH $query
-                    ORDER BY m.ReceivedAt DESC
-                    LIMIT $limit;
-                    """;
-                command.Parameters.AddParam("$query", EscapeFtsQuery(trimmed));
-            }
-
-            command.Parameters.AddParam("$limit", limit);
-            return await ReadSummariesAsync(command, ct).ConfigureAwait(false);
         }, cancellationToken);
 
     public Task UpsertRecipientAsync(RecipientEntity recipient, CancellationToken cancellationToken = default)
@@ -647,36 +582,5 @@ public sealed partial class MailDatabase : IAsyncDisposable
 
         return list;
     }
-
-    /// <summary>
-    /// FTS 查询转义：空白分词后 AND。
-    /// 拉丁词加引号防特殊字符；CJK 不加引号，交给 unicode61 按字分词（"周报" → 周 AND 报）。
-    /// </summary>
-    private static string EscapeFtsQuery(string query)
-    {
-        var tokens = query.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        if (tokens.Length == 0)
-        {
-            return "\"\"";
-        }
-
-        return string.Join(" AND ", tokens.Select(EscapeToken));
-    }
-
-    private static string EscapeToken(string token)
-    {
-        if (token.Any(IsCjk))
-        {
-            return token;
-        }
-
-        return $"\"{token.Replace("\"", "\"\"", StringComparison.Ordinal)}\"";
-    }
-
-    private static bool IsCjk(char ch)
-        => ch is >= '\u3040' and <= '\u30FF'
-            or >= '\u3400' and <= '\u4DBF'
-            or >= '\u4E00' and <= '\u9FFF'
-            or >= '\uF900' and <= '\uFAFF';
 }
 

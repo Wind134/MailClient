@@ -20,7 +20,6 @@ public class SearchQueryParserTests
         var q = SearchQueryParser.Parse("项目 进度  report");
         Assert.Equal(["项目", "进度", "report"], q.Terms.Select(t => t.Text));
         Assert.All(q.Terms, t => Assert.Equal(SearchField.Any, t.Field));
-        Assert.All(q.Terms, t => Assert.False(t.IsPhrase));
     }
 
     [Fact]
@@ -29,7 +28,6 @@ public class SearchQueryParserTests
         var q = SearchQueryParser.Parse("\"季度 报告\" 合同");
         Assert.Equal(2, q.Terms.Count);
         Assert.Equal("季度 报告", q.Terms[0].Text);
-        Assert.True(q.Terms[0].IsPhrase);
         Assert.Equal("合同", q.Terms[1].Text);
     }
 
@@ -48,8 +46,8 @@ public class SearchQueryParserTests
     public void Operator_Values_Can_Be_Quoted()
     {
         var q = SearchQueryParser.Parse("subject:\"周报 第43周\" from:\"Linda Mao\"");
-        Assert.Equal(new SearchTerm(SearchField.Subject, "周报 第43周", true), q.Terms[0]);
-        Assert.Equal(new SearchTerm(SearchField.From, "Linda Mao", true), q.Terms[1]);
+        Assert.Equal(new SearchTerm(SearchField.Subject, "周报 第43周"), q.Terms[0]);
+        Assert.Equal(new SearchTerm(SearchField.From, "Linda Mao"), q.Terms[1]);
     }
 
     [Fact]

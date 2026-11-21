@@ -169,7 +169,7 @@ public class ViewModelTests
         await compose.SendCommand.ExecuteAsync(null);
 
         Assert.True(sent);
-        var pending = await tmp.Database.ListPendingOutboxAsync();
+        var pending = await tmp.Database.ListOutboxItemsAsync();
         var item = Assert.Single(pending);
         Assert.Equal(OutboxStatus.Pending, item.Status);
         var payload = JsonSerializer.Deserialize<OutgoingMailMessage>(item.PayloadJson)!;
@@ -190,7 +190,7 @@ public class ViewModelTests
         await compose.SendCommand.ExecuteAsync(null);
 
         Assert.Contains("无效", compose.ErrorMessage);
-        Assert.Empty(await tmp.Database.ListPendingOutboxAsync());
+        Assert.Empty(await tmp.Database.ListOutboxItemsAsync());
     }
 
     [Theory]

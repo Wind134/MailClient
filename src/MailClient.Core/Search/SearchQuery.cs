@@ -11,7 +11,7 @@ public enum SearchField
 }
 
 /// <summary>一个搜索词（单词，或带引号的短语）。</summary>
-public sealed record SearchTerm(SearchField Field, string Text, bool IsPhrase = false);
+public sealed record SearchTerm(SearchField Field, string Text);
 
 /// <summary>解析后的搜索查询：各条件之间是 AND 关系。</summary>
 public sealed record SearchQuery(

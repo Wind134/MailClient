@@ -411,16 +411,6 @@ public sealed partial class MailDatabase
         }
     }
 
-    public Task<int> GetLocalStateAsync(string messageId, CancellationToken cancellationToken = default)
-        => QueryAsync(async (connection, ct) =>
-        {
-            await using var command = connection.CreateCommand();
-            command.CommandText = "SELECT LocalState FROM messages WHERE Id = $id;";
-            command.Parameters.AddParam("$id", messageId);
-            var value = await command.ExecuteScalarAsync(ct).ConfigureAwait(false);
-            return value is null ? -1 : Convert.ToInt32(value);
-        }, cancellationToken);
-
     /// <summary>邮件在服务器上的定位信息（IMAP：UID；Graph：消息 Id），供发件箱把副本 UID 回填等场景使用。</summary>
     public Task SetMessageRemoteUidAsync(string messageId, long? remoteUid, CancellationToken cancellationToken = default)
         => ExecuteAsync(async (connection, ct) =>

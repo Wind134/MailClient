@@ -99,7 +99,7 @@ public static class DemoDataSeeder
             }
 
             var category = demo.Folder is SpecialFolder.Inbox
-                ? MailCategoryClassifier.Classify(demo.Address, demo.Name, demo.Subject, preview)
+                ? MailCategoryClassifier.Classify(demo.Address, demo.Subject, preview)
                 : MailCategory.Primary;
 
             var accountAddress = demo.Account == OutlookAccountId ? OutlookAddress : QqAddress;
