@@ -1,4 +1,4 @@
-# 提交与合并前的门禁：编译全部 10 个工程并跑单元测试（排除需要真实账号的联调测试）。
+# 提交与合并前的门禁：编译全部 11 个工程并跑单元测试（排除需要真实账号的联调测试）。
 # 发版流程见 release.yml。
 name: ci
 
@@ -30,7 +30,7 @@ jobs:
 
       - name: Unit tests
         shell: pwsh
-        run: ./scripts/run-full-unit-tests.ps1
+        run: ./scripts/run-full-unit-tests.ps1 -NoBuild
 
       - uses: actions/upload-artifact@v4
         if: always()

@@ -1,3 +1,5 @@
+using System.Buffers;
+
 namespace MailClient.Core.Sending;
 
 /// <summary>
@@ -6,11 +8,28 @@ namespace MailClient.Core.Sending;
 /// </summary>
 internal static class AttachmentDirectory
 {
-    /// <summary>剔除路径非法字符，防止外部 id 拼出目录穿越。</summary>
+    private static readonly SearchValues<char> InvalidFileNameChars = SearchValues.Create(Path.GetInvalidFileNameChars());
+
+    /// <summary>剔除路径非法字符，并拒绝空串与 <c>.</c> / <c>..</c> 等特殊目录名，防止外部 id 拼出目录穿越。</summary>
     public static string Sanitize(string id)
     {
-        var invalid = Path.GetInvalidFileNameChars();
-        return string.Concat(id.Select(c => invalid.Contains(c) ? '_' : c));
+        ArgumentException.ThrowIfNullOrWhiteSpace(id);
+
+        var cleaned = string.Create(id.Length, id, static (span, source) =>
+        {
+            for (var i = 0; i < source.Length; i++)
+            {
+                var c = source[i];
+                span[i] = InvalidFileNameChars.Contains(c) ? '_' : c;
+            }
+        }).Trim();
+
+        if (cleaned.Length == 0 || cleaned.TrimEnd('.').Length == 0)
+        {
+            throw new ArgumentException($"附件目录标识非法：{id}", nameof(id));
+        }
+
+        return cleaned;
     }
 
     public static string EnsureTrailingSeparator(string path)

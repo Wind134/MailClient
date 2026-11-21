@@ -425,9 +425,8 @@ public sealed partial class MailDatabase
             }
 
             await transaction.CommitAsync(ct).ConfigureAwait(false);
+            await RecalculateFolderCountsCoreAsync(connection, ct).ConfigureAwait(false);
         }, cancellationToken).ConfigureAwait(false);
-
-        await RecalculateFolderCountsAsync(cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>邮件在服务器上的定位信息（IMAP：UID；Graph：消息 Id），供发件箱把副本 UID 回填等场景使用。</summary>

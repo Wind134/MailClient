@@ -17,7 +17,11 @@ public static class HexColor
             return false;
         }
 
-        var text = hex.Trim().TrimStart('#');
+        var text = hex.Trim();
+        if (text.StartsWith('#'))
+        {
+            text = text[1..];
+        }
         if (text.Length != 6 ||
             !int.TryParse(text, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var rgb))
         {

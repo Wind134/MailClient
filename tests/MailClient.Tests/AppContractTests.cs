@@ -62,10 +62,33 @@ public class HexColorTests
     [InlineData("")]
     [InlineData("   ")]
     [InlineData("#FFF")]
+    [InlineData("##FF0000")]
     [InlineData("#GGGGGG")]
     [InlineData("#FF00000")]
     public void TryParse_Rejects_Invalid(string? hex)
         => Assert.False(HexColor.TryParse(hex, out _, out _, out _));
+}
+
+public class AttachmentDirectorySanitizeTests
+{
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData(".")]
+    [InlineData("..")]
+    [InlineData("...")]
+    public void DirectoryFor_Rejects_Traversal_And_Blank_Ids(string id)
+    {
+        Assert.Throws<ArgumentException>(() => MailClient.Core.Sending.DraftAttachmentStore.DirectoryFor("C:\\root", id));
+        Assert.Throws<ArgumentException>(() => MailClient.Core.Sending.OutboxAttachmentStore.DirectoryFor("C:\\root", id));
+    }
+
+    [Fact]
+    public void DirectoryFor_Sanitizes_Invalid_FileName_Characters()
+    {
+        var dir = MailClient.Core.Sending.DraftAttachmentStore.DirectoryFor("C:\\root", "a/b:c");
+        Assert.Equal(Path.Combine("C:\\root", "a_b_c"), dir);
+    }
 }
 
 /// <summary>
