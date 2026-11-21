@@ -2,7 +2,6 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using MailClient.Core;
 using MailClient.Core.Search;
-using MailClient.Storage;
 
 namespace MailClient.ViewModels;
 
@@ -37,7 +36,7 @@ public sealed partial class MessageListViewModel : ObservableObject
         new(MailCategory.Promotions, UiStrings.Promotions)
     ];
 
-    private readonly MailDatabase _database;
+    private readonly IMailStore _database;
     private readonly AppSettingsStore? _settings;
     private readonly Func<DateTimeOffset> _clock;
     private SynchronizationContext? _ui = SynchronizationContext.Current;
@@ -52,7 +51,7 @@ public sealed partial class MessageListViewModel : ObservableObject
     private IReadOnlyList<string>? _folderIds;
     private bool _suppressSelectionEvent;
 
-    public MessageListViewModel(MailDatabase database, Func<DateTimeOffset>? clock = null, AppSettingsStore? settings = null)
+    public MessageListViewModel(IMailStore database, Func<DateTimeOffset>? clock = null, AppSettingsStore? settings = null)
     {
         _database = database;
         _settings = settings;

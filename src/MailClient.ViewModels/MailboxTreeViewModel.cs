@@ -1,19 +1,17 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using MailClient.Core;
-using MailClient.Storage;
-using MailClient.Storage.Demo;
 
 namespace MailClient.ViewModels;
 
 /// <summary>左栏：收藏夹 + 各账号文件夹。</summary>
 public sealed partial class MailboxTreeViewModel : ObservableObject
 {
-    private readonly MailDatabase _database;
+    private readonly IMailStore _database;
     private IReadOnlyList<FolderEntity> _allFolders = Array.Empty<FolderEntity>();
     private SynchronizationContext? _ui = SynchronizationContext.Current;
 
-    public MailboxTreeViewModel(MailDatabase database) => _database = database;
+    public MailboxTreeViewModel(IMailStore database) => _database = database;
 
     /// <summary>未读角标绑在 NavigationView 上，计数刷新必须回到 UI 线程。</summary>
     public void AttachSynchronizationContext(SynchronizationContext? context = null)
@@ -64,7 +62,7 @@ public sealed partial class MailboxTreeViewModel : ObservableObject
                 AccountId = account.Id,
                 EmailAddress = account.EmailAddress,
                 ProviderId = account.ProviderId,
-                IsDemo = DemoDataSeeder.IsDemoAccount(account.Id),
+                IsDemo = DemoAccounts.IsDemoAccount(account.Id),
                 ColorHex = colors[account.Id],
                 AvatarLetter = AccountPalette.LetterFor(account.DisplayName, account.EmailAddress),
                 NeedsRelogin = ReloginResolver?.Invoke(account.Id) == true

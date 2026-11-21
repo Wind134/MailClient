@@ -23,7 +23,7 @@ public sealed partial class MessageRowViewModel : ObservableObject
         _isUnread = !entity.IsRead;
         _isFlagged = entity.IsFlagged;
         IsDraft = entity.IsDraft;
-        IsLocalDraft = entity.Id.StartsWith(Storage.MailDatabase.DraftMessagePrefix, StringComparison.Ordinal);
+        IsLocalDraft = entity.Id.StartsWith(MailIds.DraftMessagePrefix, StringComparison.Ordinal);
         if (IsDraft)
         {
             // 草稿行的“发件人”就是自己，没有信息量：醒目地标成“草稿”

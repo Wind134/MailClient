@@ -10,7 +10,7 @@ namespace MailClient.Storage;
 /// 取得 <c>_gate</c> 后串行执行。<see cref="SqliteConnection"/> 不是线程安全的，绕过门直接碰 <c>_connection</c>
 /// 会让一个线程的 Dispose/Open 拆掉另一个线程正在执行的读取器。
 /// </remarks>
-public sealed partial class MailDatabase : IAsyncDisposable
+public sealed partial class MailDatabase : IAsyncDisposable, IMailStore
 {
     /// <summary>其他进程持锁时的等待上限（毫秒），避免立刻抛 SQLITE_BUSY。</summary>
     private const int BusyTimeoutMs = 5000;

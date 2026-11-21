@@ -4,7 +4,6 @@ using CommunityToolkit.Mvvm.Input;
 using MailClient.Core;
 using MailClient.Core.Search;
 using MailClient.Core.Services;
-using MailClient.Storage;
 
 namespace MailClient.ViewModels;
 
@@ -23,7 +22,7 @@ public sealed record MessageMutationEventArgs(string MessageId, MessageMutation 
 /// <summary>右栏：阅读窗格。</summary>
 public sealed partial class ReadingPaneViewModel : ObservableObject
 {
-    private readonly MailDatabase _database;
+    private readonly IMailStore _database;
     private readonly IMessageBodyLoader? _bodyLoader;
     private MessageEntity? _entity;
     private IReadOnlyList<RecipientEntity> _recipients = Array.Empty<RecipientEntity>();
@@ -36,7 +35,7 @@ public sealed partial class ReadingPaneViewModel : ObservableObject
         => _ui = context ?? SynchronizationContext.Current ?? _ui;
 
     public ReadingPaneViewModel(
-        MailDatabase database,
+        IMailStore database,
         MailboxTreeViewModel tree,
         MessageActions? actions = null,
         IMessageBodyLoader? bodyLoader = null)

@@ -12,7 +12,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\MailClient.Core\MailClient.Core.csproj" />
-    <ProjectReference Include="..\MailClient.Storage\MailClient.Storage.csproj" />
     <ProjectReference Include="..\MailClient.Auth\MailClient.Auth.csproj" />
     <ProjectReference Include="..\MailClient.Providers\MailClient.Providers.csproj" />
   </ItemGroup>
