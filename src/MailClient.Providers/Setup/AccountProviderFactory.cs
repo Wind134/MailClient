@@ -60,7 +60,7 @@ public sealed class AccountProviderFactory
     {
         switch (account.ProviderId)
         {
-            case "microsoft.graph":
+            case ProviderIds.MicrosoftGraph:
             {
                 var clientId = _settings.MicrosoftClientId;
                 if (string.IsNullOrWhiteSpace(clientId))
@@ -73,7 +73,7 @@ public sealed class AccountProviderFactory
                 var acquirer = new MicrosoftGraphTokenAcquirer(config, _store, windowHandleProvider: _windowHandle);
                 return new ProviderHandle(null, new MicrosoftGraphProvider(config, acquirer));
             }
-            case Outbox.SentCopyPolicy.GmailProviderId:
+            case ProviderIds.Gmail:
             {
                 var clientId = _settings.GmailClientId;
                 if (string.IsNullOrWhiteSpace(clientId))

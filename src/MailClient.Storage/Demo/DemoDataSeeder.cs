@@ -61,7 +61,7 @@ public static class DemoDataSeeder
         var clock = now ?? DateTimeOffset.Now;
         var created = clock.AddDays(-30);
 
-        await db.UpsertAccountAsync(new AccountEntity(OutlookAccountId, "Outlook", OutlookAddress, "microsoft.graph",
+        await db.UpsertAccountAsync(new AccountEntity(OutlookAccountId, "Outlook", OutlookAddress, ProviderIds.MicrosoftGraph,
             AuthKind.OAuth, created, clock, clock, true), cancellationToken).ConfigureAwait(false);
         await db.UpsertAccountAsync(new AccountEntity(QqAccountId, "QQ 邮箱", QqAddress, "imap.generic",
             AuthKind.AppPassword, created.AddMinutes(1), clock, clock, true), cancellationToken).ConfigureAwait(false);

@@ -82,7 +82,7 @@ public sealed class OutgoingTransportFactory : IOutgoingTransportFactory
         }
 
         // Gmail 服务器会保存已发送邮件并保留客户端的 Message-ID，查不到就是没发出；普通 IMAP 服务器不会保存，查不到不可信
-        return new ImapOutgoingTransport(handle, sentLookupIsAuthoritative: account.ProviderId == SentCopyPolicy.GmailProviderId);
+        return new ImapOutgoingTransport(handle, sentLookupIsAuthoritative: account.ProviderId == ProviderIds.Gmail);
     }
 
     public bool ShouldAppendSentCopy(AccountEntity account)

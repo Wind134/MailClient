@@ -23,7 +23,7 @@ public sealed class GmailProvider : IMailProvider, IAsyncDisposable
         _imap = new GenericImapProvider(
             ToImapConfig(config),
             tokenSource,
-            GmailEndpoints.ProviderId,
+            ProviderIds.Gmail,
             config.UseGmailCategories);
     }
 
@@ -35,7 +35,7 @@ public sealed class GmailProvider : IMailProvider, IAsyncDisposable
 
     public GmailAccountConfig Config { get; }
 
-    public string ProviderId => GmailEndpoints.ProviderId;
+    public string ProviderId => ProviderIds.Gmail;
 
     public Guid AccountId => Config.AccountId;
 

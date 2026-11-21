@@ -244,8 +244,8 @@ public sealed class AccountSetupService : IAccountSetupService
         var now = _clock();
         var (providerId, authKind) = draft.Kind switch
         {
-            SetupProviderKind.Gmail => (GmailEndpoints.ProviderId, AuthKind.OAuth),
-            SetupProviderKind.Outlook => ("microsoft.graph", AuthKind.OAuth),
+            SetupProviderKind.Gmail => (ProviderIds.Gmail, AuthKind.OAuth),
+            SetupProviderKind.Outlook => (ProviderIds.MicrosoftGraph, AuthKind.OAuth),
             SetupProviderKind.Qq or SetupProviderKind.NetEase => ("imap.generic", AuthKind.AppPassword),
             _ => ("imap.generic", AuthKind.Password)
         };
@@ -289,13 +289,13 @@ public sealed class AccountSetupService : IAccountSetupService
         // 尽力注销（Google 令牌吊销 / MSAL 账号移除）；失败不影响本地删除。
         try
         {
-            if (account?.ProviderId == GmailEndpoints.ProviderId && _settings.GmailClientId is { Length: > 0 } gid)
+            if (account?.ProviderId == ProviderIds.Gmail && _settings.GmailClientId is { Length: > 0 } gid)
             {
                 using var acquirer = new GmailTokenAcquirer(
                     new GmailAccountConfig(accountId, account.EmailAddress, account.DisplayName, gid, _settings.GmailClientSecret), _store);
                 await acquirer.SignOutAsync(CancellationToken.None).ConfigureAwait(false);
             }
-            else if (account?.ProviderId == "microsoft.graph" && _settings.MicrosoftClientId is { Length: > 0 } mid)
+            else if (account?.ProviderId == ProviderIds.MicrosoftGraph && _settings.MicrosoftClientId is { Length: > 0 } mid)
             {
                 var acquirer = new MicrosoftGraphTokenAcquirer(
                     new MicrosoftGraphAccountConfig(accountId, account.EmailAddress, account.DisplayName, mid, _settings.MicrosoftTenantId),

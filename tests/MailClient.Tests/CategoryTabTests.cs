@@ -29,7 +29,7 @@ public class CategoryTabTests
     {
         var now = Now;
         await db.UpsertAccountAsync(new AccountEntity(
-            GmailId, "演示 Gmail", "demo.gmail@example.com", GmailEndpoints.ProviderId,
+            GmailId, "演示 Gmail", "demo.gmail@example.com", ProviderIds.Gmail,
             AuthKind.OAuth, now, now, null, true));
         await db.UpsertFolderAsync(new FolderEntity(InboxId, GmailId, "收件箱", SpecialFolder.Inbox, "INBOX", 0, 0, 0));
 
@@ -50,7 +50,7 @@ public class CategoryTabTests
     private static MailboxNodeViewModel GmailInboxNode() => new(MailboxNodeKind.Folder, "收件箱", "\uE715")
     {
         Special = SpecialFolder.Inbox,
-        ProviderId = GmailEndpoints.ProviderId,
+        ProviderId = ProviderIds.Gmail,
         AccountId = GmailId,
         FolderId = InboxId
     };

@@ -250,7 +250,7 @@ public class ComposeViewModelSendingTests
 
         try
         {
-            var graph = Account("microsoft.graph", "me@outlook.com");
+            var graph = Account(ProviderIds.MicrosoftGraph, "me@outlook.com");
             var vm = new ComposeViewModel(new RecordingSendService(), [graph], ComposeRequest.New(graph.Id));
 
             Assert.True(vm.AddAttachment(file));
@@ -303,7 +303,7 @@ public class ComposeViewModelSendingTests
         try
         {
             var qq = Account();
-            var graph = Account("microsoft.graph", "me@outlook.com");
+            var graph = Account(ProviderIds.MicrosoftGraph, "me@outlook.com");
             var vm = new ComposeViewModel(new RecordingSendService(), [qq, graph], ComposeRequest.New(qq.Id));
             vm.AddAttachment(file);
             Assert.Equal("", vm.AttachmentWarning);

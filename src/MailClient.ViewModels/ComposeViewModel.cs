@@ -201,7 +201,7 @@ public sealed partial class ComposeViewModel : ObservableObject
         var limit = SelectedAccount?.AttachmentLimit ?? AttachmentLimits.For(string.Empty);
         if (total > limit)
         {
-            var graph = string.Equals(SelectedAccount?.ProviderId, "microsoft.graph", StringComparison.OrdinalIgnoreCase);
+            var graph = string.Equals(SelectedAccount?.ProviderId, ProviderIds.MicrosoftGraph, StringComparison.OrdinalIgnoreCase);
             AttachmentWarning = graph
                 ? $"附件总大小 {TimeFormatter.FormatSize(total)} 超过 Outlook 账号目前支持的 {TimeFormatter.FormatSize(limit)}（大附件上传尚未实现），发送会失败。请减少附件或改用其他账号。"
                 : $"附件总大小 {TimeFormatter.FormatSize(total)} 超过该邮箱通常允许的 {TimeFormatter.FormatSize(limit)}，服务器可能会拒收。";

@@ -57,7 +57,7 @@ public class ViewModelTests
 
         var outlookInbox = shell.Tree.Accounts
             .SelectMany(a => a.Children)
-            .First(n => n.Special == SpecialFolder.Inbox && n.ProviderId == "microsoft.graph");
+            .First(n => n.Special == SpecialFolder.Inbox && n.ProviderId == ProviderIds.MicrosoftGraph);
         // 通过 SelectedNode 触发 ShowNode
         shell.Tree.SelectedNode = outlookInbox;
         await WaitUntilAsync(() => shell.List.Title == outlookInbox.Title && !shell.List.IsLoading);
@@ -72,12 +72,12 @@ public class ViewModelTests
         var gmail = new MailboxNodeViewModel(MailboxNodeKind.Folder, "收件箱", "\uE715")
         {
             Special = SpecialFolder.Inbox,
-            ProviderId = GmailEndpoints.ProviderId
+            ProviderId = ProviderIds.Gmail
         };
         var outlook = new MailboxNodeViewModel(MailboxNodeKind.Folder, "收件箱", "\uE715")
         {
             Special = SpecialFolder.Inbox,
-            ProviderId = "microsoft.graph"
+            ProviderId = ProviderIds.MicrosoftGraph
         };
         var all = new MailboxNodeViewModel(MailboxNodeKind.AllInboxes, "所有收件箱", "\uE715");
         Assert.True(gmail.ShowsCategories);

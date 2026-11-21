@@ -25,7 +25,7 @@ public sealed class MicrosoftGraphProvider : IMailProvider, IGraphDeltaSource, I
     private string? _resolvedEmail;
     private IReadOnlyList<MailFolder>? _folderCache;
 
-    public string ProviderId => "microsoft.graph";
+    public string ProviderId => ProviderIds.MicrosoftGraph;
 
     public Guid AccountId => _config.AccountId;
 

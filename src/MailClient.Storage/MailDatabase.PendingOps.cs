@@ -11,8 +11,7 @@ namespace MailClient.Storage;
 /// </summary>
 public sealed partial class MailDatabase
 {
-    private const string GraphProviderId = "microsoft.graph";
-
+    
     /// <summary>pending_ops 有新增 / 变化时触发（后台写回线程订阅）。</summary>
     public event EventHandler? PendingOpsChanged;
 
@@ -91,7 +90,7 @@ public sealed partial class MailDatabase
                     provider = (await p.ExecuteScalarAsync(ct).ConfigureAwait(false)) as string ?? string.Empty;
                 }
 
-                var isGraph = string.Equals(provider, GraphProviderId, StringComparison.OrdinalIgnoreCase);
+                var isGraph = string.Equals(provider, ProviderIds.MicrosoftGraph, StringComparison.OrdinalIgnoreCase);
                 // Graph：本地 Id = {账号}:{graphId}；刚在本地移动过（LocalState=2）的 Graph 邮件 id 已变，无法定位
                 string? remoteKey = isGraph
                     ? (localState == 2 ? null : GraphKeyFromMessageId(messageId, accountId))

@@ -65,7 +65,7 @@ public sealed partial class MailboxNodeViewModel : ObservableObject
         && IsGmailProvider(ProviderId);
 
     public static bool IsGmailProvider(string? providerId) =>
-        string.Equals(providerId, GmailEndpoints.ProviderId, StringComparison.OrdinalIgnoreCase);
+        string.Equals(providerId, ProviderIds.Gmail, StringComparison.OrdinalIgnoreCase);
 
     public bool IsSelectable => Kind != MailboxNodeKind.Account;
 
