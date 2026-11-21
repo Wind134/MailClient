@@ -19,7 +19,7 @@ public sealed class ProviderIdleRunner : IIdleRunner
     public async Task<IdleOutcome> RunAsync(AccountEntity account, Func<CancellationToken, Task> onChange, CancellationToken cancellationToken)
     {
         await using var handle = await _factory.OpenAsync(account, cancellationToken).ConfigureAwait(false);
-        if (handle.Imap is null)
+        if (!handle.SupportsIdle)
         {
             return IdleOutcome.Unsupported;      // Graph：桌面应用收不到 webhook，只能轮询
         }

@@ -86,10 +86,7 @@ public sealed class AccountAuthService : IAccountAuthService
             {
                 // Gmail（XOAUTH2，必要时先用 refresh token 刷新）与普通 IMAP：连接 + 登录即说明凭据有效
                 await using var handle = await _providers.OpenAsync(account, timeout.Token).ConfigureAwait(false);
-                if (handle.Imap is { } imap)
-                {
-                    await imap.ConnectAsync(timeout.Token).ConfigureAwait(false);
-                }
+                await handle.Imap.ConnectAsync(timeout.Token).ConfigureAwait(false);
             }
 
             return ConnectionCheckResult.Healthy;

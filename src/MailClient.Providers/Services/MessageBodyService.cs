@@ -79,8 +79,9 @@ public sealed class MessageBodyService : IMessageBodyLoader
     {
         await using var handle = await _providers.OpenAsync(account, cancellationToken).ConfigureAwait(false);
         MessageBodyContent content;
-        if (handle.Imap is { } imap)
+        if (handle.Kind == ProviderKind.Imap)
         {
+            var imap = handle.Imap;
             var folder = await _db.GetFolderAsync(message.FolderId, cancellationToken).ConfigureAwait(false);
             if (folder?.RemotePath is null || message.RemoteUid is null)
             {
@@ -90,14 +91,10 @@ public sealed class MessageBodyService : IMessageBodyLoader
             content = await imap.FetchBodyAsync(folder.RemotePath, message.RemoteUid.Value, cancellationToken)
                 .ConfigureAwait(false);
         }
-        else if (handle.Graph is { } graph)
-        {
-            var graphId = ExtractGraphId(message.Id, message.AccountId);
-            content = await graph.FetchBodyAsync(graphId, cancellationToken).ConfigureAwait(false);
-        }
         else
         {
-            throw new InvalidOperationException("此账号类型暂不支持拉取正文。");
+            var graphId = ExtractGraphId(message.Id, message.AccountId);
+            content = await handle.Graph.FetchBodyAsync(graphId, cancellationToken).ConfigureAwait(false);
         }
 
         if (content.BodyHtml is not null && CidHtmlRewriter.ContainsUnresolvedCid(content.BodyHtml))
@@ -148,8 +145,9 @@ public sealed class MessageBodyService : IMessageBodyLoader
         AccountEntity account, MessageEntity message, AttachmentEntity attachment, string destinationPath, CancellationToken cancellationToken)
     {
         await using var handle = await _providers.OpenAsync(account, cancellationToken).ConfigureAwait(false);
-        if (handle.Imap is { } imap)
+        if (handle.Kind == ProviderKind.Imap)
         {
+            var imap = handle.Imap;
             var folder = await _db.GetFolderAsync(message.FolderId, cancellationToken).ConfigureAwait(false);
             if (folder?.RemotePath is null || message.RemoteUid is null)
             {
@@ -159,7 +157,7 @@ public sealed class MessageBodyService : IMessageBodyLoader
             await imap.DownloadAttachmentAsync(folder.RemotePath, message.RemoteUid.Value, attachment.FileName, destinationPath, cancellationToken)
                 .ConfigureAwait(false);
         }
-        else if (handle.Graph is { } graph)
+        else
         {
             if (string.IsNullOrEmpty(attachment.RemoteId))
             {
@@ -167,12 +165,8 @@ public sealed class MessageBodyService : IMessageBodyLoader
             }
 
             var graphId = ExtractGraphId(message.Id, message.AccountId);
-            await graph.DownloadAttachmentAsync(graphId, attachment.RemoteId, destinationPath, cancellationToken)
+            await handle.Graph.DownloadAttachmentAsync(graphId, attachment.RemoteId, destinationPath, cancellationToken)
                 .ConfigureAwait(false);
-        }
-        else
-        {
-            throw new InvalidOperationException("此账号类型暂不支持下载附件。");
         }
     }
 

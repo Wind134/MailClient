@@ -12,7 +12,7 @@ public sealed class ImapOutgoingTransport : IOutgoingTransport
     public ImapOutgoingTransport(ProviderHandle handle, bool sentLookupIsAuthoritative)
     {
         _handle = handle;
-        _imap = handle.Imap ?? throw new ArgumentException("缺少 IMAP 提供商。", nameof(handle));
+        _imap = handle.Imap;
         SentLookupIsAuthoritative = sentLookupIsAuthoritative;
     }
 
@@ -47,7 +47,7 @@ public sealed class GraphOutgoingTransport : IOutgoingTransport
     public GraphOutgoingTransport(ProviderHandle handle)
     {
         _handle = handle;
-        _graph = handle.Graph ?? throw new ArgumentException("缺少 Graph 提供商。", nameof(handle));
+        _graph = handle.Graph;
     }
 
     public bool SentLookupIsAuthoritative => true;
@@ -76,7 +76,7 @@ public sealed class OutgoingTransportFactory : IOutgoingTransportFactory
     public async Task<IOutgoingTransport> CreateAsync(AccountEntity account, CancellationToken cancellationToken)
     {
         var handle = await _providers.OpenAsync(account, cancellationToken).ConfigureAwait(false);
-        if (handle.Graph is not null)
+        if (handle.Kind == ProviderKind.Graph)
         {
             return new GraphOutgoingTransport(handle);
         }
