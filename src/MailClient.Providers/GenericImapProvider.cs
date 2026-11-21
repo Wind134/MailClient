@@ -1,6 +1,5 @@
 using MailClient.Auth;
 using MailClient.Core;
-using MailClient.Core.Providers;
 using MailClient.Providers.Imap;
 using MailKit;
 using MailFolder = MailClient.Core.MailFolder;
@@ -17,7 +16,7 @@ namespace MailClient.Providers;
 /// 通用 IMAP/SMTP 提供商（MailKit）。支持用户名+密码/授权码，
 /// 也支持由 <see cref="IOAuthTokenSource"/> 提供访问令牌的 XOAUTH2（<see cref="GmailProvider"/> 复用）。
 /// </summary>
-public sealed partial class GenericImapProvider : IMailProvider, IAsyncDisposable
+public sealed partial class GenericImapProvider : IAsyncDisposable
 {
     private readonly GenericImapAccountConfig _config;
     private readonly ICredentialStore? _credentialStore;
@@ -274,19 +273,6 @@ public sealed partial class GenericImapProvider : IMailProvider, IAsyncDisposabl
         }
     }
 
-    public async Task<IReadOnlyList<MailMessageSummary>> SyncFolderAsync(
-        string folderId,
-        CancellationToken cancellationToken = default)
-    {
-        var items = await SyncFolderDetailedAsync(
-                folderId,
-                maxCount: null,
-                afterUidExclusive: null,
-                cancellationToken: cancellationToken)
-            .ConfigureAwait(false);
-        return items.Select(i => i.Summary).ToList();
-    }
-
     /// <summary>UID 增量友好的详细同步：返回可落库的 <see cref="MailMessageSyncItem"/>。</summary>
     public async Task<IReadOnlyList<MailMessageSyncItem>> SyncFolderDetailedAsync(
         string folderId,
@@ -414,15 +400,6 @@ public sealed partial class GenericImapProvider : IMailProvider, IAsyncDisposabl
         {
             return null;
         }
-    }
-
-    public async Task SendAsync(OutgoingMailMessage message, CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(message);
-
-        using var mime = Outbox.OutgoingMimeBuilder.Build(
-            message, _config.EmailAddress, _config.DisplayName, DateTimeOffset.Now);
-        await SendMimeAsync(mime, cancellationToken).ConfigureAwait(false);
     }
 
     public async ValueTask DisposeAsync()

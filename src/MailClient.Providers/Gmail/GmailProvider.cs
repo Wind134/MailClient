@@ -1,6 +1,5 @@
 using MailClient.Auth;
 using MailClient.Core;
-using MailClient.Core.Providers;
 using MailClient.Providers.Imap;
 
 namespace MailClient.Providers;
@@ -11,7 +10,7 @@ namespace MailClient.Providers;
 /// Gmail 的特殊文件夹通过 SPECIAL-USE 属性映射（见 <see cref="FolderSpecialMapper"/>）：
 /// [Gmail]/All Mail(\All)→归档，Spam(\Junk)→垃圾邮件，Sent Mail/Drafts/Trash，Starred(\Flagged)→已标记；Important 保持自定义文件夹。
 /// </summary>
-public sealed class GmailProvider : IMailProvider, IAsyncDisposable
+public sealed class GmailProvider : IAsyncDisposable
 {
     private readonly GenericImapProvider _imap;
 
@@ -58,12 +57,6 @@ public sealed class GmailProvider : IMailProvider, IAsyncDisposable
 
     public Task<IReadOnlyList<MailFolder>> GetFoldersAsync(CancellationToken cancellationToken = default)
         => _imap.GetFoldersAsync(cancellationToken);
-
-    public Task<IReadOnlyList<MailMessageSummary>> SyncFolderAsync(string folderId, CancellationToken cancellationToken = default)
-        => _imap.SyncFolderAsync(folderId, cancellationToken);
-
-    public Task SendAsync(OutgoingMailMessage message, CancellationToken cancellationToken = default)
-        => _imap.SendAsync(message, cancellationToken);
 
     public ValueTask DisposeAsync() => _imap.DisposeAsync();
 }
