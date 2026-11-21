@@ -114,7 +114,7 @@ public class CategoryTabTests
     }
 
     [Fact]
-    public async Task Snapshot_Clone_Keeps_LastInboxCategoryTab()
+    public void Snapshot_Clone_Keeps_LastInboxCategoryTab()
     {
         using var dir = new TempDir();
         var path = Path.Combine(dir.Path, "settings.json");

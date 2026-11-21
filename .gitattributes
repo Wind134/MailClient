@@ -1,0 +1,27 @@
+# 统一行尾：仓库只在 Windows 上构建与发布，文本一律 CRLF，避免每个提交都刷
+# "LF will be replaced by CRLF" 之类的噪音，也免得跨平台改动产生整文件 diff。
+* text=auto eol=crlf
+
+*.cs        text diff=csharp
+*.csproj    text
+*.props     text
+*.targets   text
+*.sln       text eol=crlf
+*.slnx      text eol=crlf
+*.ps1       text eol=crlf
+*.psm1      text eol=crlf
+*.yml       text eol=lf
+*.yaml      text eol=lf
+*.md        text eol=lf
+*.json      text eol=lf
+*.xml       text eol=lf
+*.xaml      text
+*.config    text
+
+*.png       binary
+*.jpg       binary
+*.ico       binary
+*.zip       binary
+*.nupkg     binary
+*.exe       binary
+*.pfx       binary

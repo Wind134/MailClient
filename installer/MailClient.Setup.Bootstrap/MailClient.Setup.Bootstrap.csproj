@@ -10,7 +10,6 @@
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net472</TargetFramework>
-    <LangVersion>latest</LangVersion>
     <AssemblyName>MailClient-Setup</AssemblyName>
     <RootNamespace>MailClient.Setup.Bootstrap</RootNamespace>
     <AssemblyTitle>邮件 安装程序</AssemblyTitle>

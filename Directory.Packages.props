@@ -1,0 +1,46 @@
+<Project>
+
+  <!--
+    集中包管理（CPM）：所有第三方包版本只在这里出现一次。
+    特别注意 App 与 Setup 的产物会被合并进同一个发布目录、共用一份 Windows App Runtime，
+    两者的 WindowsAppSDK / BuildTools 版本必须同步更新，集中管理后不会再各改各的。
+  -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+
+  <ItemGroup Label="Windows App SDK（App 与 Setup 必须同版本）">
+    <PackageVersion Include="Microsoft.WindowsAppSDK" Version="2.3.1" />
+    <PackageVersion Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.4654" />
+  </ItemGroup>
+
+  <ItemGroup Label="应用">
+    <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+    <PackageVersion Include="System.Drawing.Common" Version="8.0.10" />
+  </ItemGroup>
+
+  <ItemGroup Label="认证">
+    <PackageVersion Include="Microsoft.Identity.Client" Version="4.92.0" />
+    <PackageVersion Include="Microsoft.Identity.Client.Broker" Version="4.92.0" />
+  </ItemGroup>
+
+  <ItemGroup Label="邮件协议">
+    <PackageVersion Include="MailKit" Version="4.18.2" />
+    <PackageVersion Include="MimeKit" Version="4.18.2" />
+    <PackageVersion Include="Microsoft.Graph" Version="6.9.0" />
+    <PackageVersion Include="Azure.Core" Version="1.64.0" />
+  </ItemGroup>
+
+  <ItemGroup Label="存储">
+    <PackageVersion Include="Microsoft.Data.Sqlite" Version="8.0.11" />
+  </ItemGroup>
+
+  <ItemGroup Label="测试">
+    <PackageVersion Include="coverlet.collector" Version="6.0.0" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
+    <PackageVersion Include="xunit" Version="2.5.3" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="2.5.3" />
+    <PackageVersion Include="Xunit.SkippableFact" Version="1.5.85" />
+  </ItemGroup>
+
+</Project>
