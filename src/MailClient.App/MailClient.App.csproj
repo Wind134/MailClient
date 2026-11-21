@@ -114,4 +114,7 @@
     <Content Update="Assets\*.ico" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="MailClient.App.Tests" />
+  </ItemGroup>
 </Project>
