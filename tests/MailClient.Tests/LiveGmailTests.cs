@@ -5,33 +5,22 @@ using MailClient.Providers;
 namespace MailClient.Tests;
 
 /// <summary>
-/// 真实 Gmail 联调（手动）。需要环境变量：
-/// MAILCLIENT_GMAIL_CLIENT_ID、MAILCLIENT_GMAIL_EMAIL；可选 MAILCLIENT_GMAIL_CLIENT_SECRET；
-/// 首次运行会拉起系统浏览器让你登录授权（5 分钟内完成），之后令牌在内存凭据库里复用。
-/// 若已有 refresh token，可设置 MAILCLIENT_GMAIL_REFRESH_TOKEN 跳过浏览器（自动化 / CI）。
-/// 未设置 MAILCLIENT_GMAIL_CLIENT_ID 时直接跳过。
+/// 真实 Gmail 联调（手动执行）。需要环境变量 MAILCLIENT_GMAIL_CLIENT_ID、MAILCLIENT_GMAIL_EMAIL，
+/// 可选 MAILCLIENT_GMAIL_CLIENT_SECRET。首次运行会拉起浏览器授权（5 分钟内完成）；
+/// 若设置 MAILCLIENT_GMAIL_REFRESH_TOKEN 则跳过浏览器。未配置时用例标记为跳过。
 /// </summary>
+[Trait("Category", "Live")]
 public class LiveGmailTests
 {
-    private static string? Env(string name)
-    {
-        var v = Environment.GetEnvironmentVariable(name);
-        return string.IsNullOrWhiteSpace(v) ? null : v;
-    }
-
-    [Fact]
+    [SkippableFact]
     public async Task Connect_list_folders_and_sync_inbox_when_env_set()
     {
-        var clientId = Env("MAILCLIENT_GMAIL_CLIENT_ID");
-        var email = Env("MAILCLIENT_GMAIL_EMAIL");
-        if (clientId is null || email is null)
-        {
-            return; // 没有真实凭据时安静跳过
-        }
+        var clientId = LiveEnvironment.Require("MAILCLIENT_GMAIL_CLIENT_ID");
+        var email = LiveEnvironment.Require("MAILCLIENT_GMAIL_EMAIL");
+        var config = new GmailAccountConfig(Guid.NewGuid(), email, "Live", clientId, LiveEnvironment.Optional("MAILCLIENT_GMAIL_CLIENT_SECRET"));
 
-        var config = new GmailAccountConfig(Guid.NewGuid(), email, "Live", clientId, Env("MAILCLIENT_GMAIL_CLIENT_SECRET"));
         var store = new InMemoryCredentialStore();
-        if (Env("MAILCLIENT_GMAIL_REFRESH_TOKEN") is { } refresh)
+        if (LiveEnvironment.Optional("MAILCLIENT_GMAIL_REFRESH_TOKEN") is { } refresh)
         {
             await new GmailTokenStore(store, config.EffectiveVaultKey)
                 .SaveAsync(new GmailTokenSet("", refresh, DateTimeOffset.UtcNow.AddMinutes(-1), email, null));

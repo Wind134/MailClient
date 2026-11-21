@@ -1,0 +1,40 @@
+# 提交与合并前的门禁：编译全部 10 个工程并跑单元测试（排除需要真实账号的联调测试）。
+# 发版流程见 release.yml。
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-test:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore
+        run: dotnet restore MailClient.sln
+
+      - name: Build
+        run: dotnet build MailClient.sln -c Release -p:Platform=x64 --no-restore --nologo
+
+      - name: Unit tests
+        shell: pwsh
+        run: ./scripts/run-full-unit-tests.ps1
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-log
+          path: artifacts/test-full.log
+          if-no-files-found: ignore

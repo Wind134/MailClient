@@ -6,6 +6,11 @@ $script:RepoRoot  = Split-Path -Parent $PSScriptRoot
 $script:AppDir    = Join-Path $RepoRoot 'src\MailClient.App'
 $script:AppProj   = Join-Path $AppDir 'MailClient.App.csproj'
 $script:ManifestSrc = Join-Path $AppDir 'Package.appxmanifest'
+$script:TestProj  = Join-Path $RepoRoot 'tests\MailClient.Tests\MailClient.Tests.csproj'
+
+# 联调测试（需要真实账号凭据）统一打 Trait("Category","Live")，此处按 Trait 排除，
+# 不再依赖类名前缀 —— 否则改名就会让过滤失效，或误伤不需要凭据的用例。
+$script:UnitTestFilter = 'Category!=Live'
 
 function Get-OutDir([string]$Configuration, [string]$Platform) {
     $rid = 'win-' + $Platform.ToLowerInvariant()

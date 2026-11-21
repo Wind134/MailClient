@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
   生成 .exe 安装包（MailClient-Setup-<版本>.exe）和免安装便携版 zip，输出到 artifacts\release\。
 .DESCRIPTION
@@ -75,8 +75,7 @@ Write-Host "== MailClient $Version 安装包构建 ==" -ForegroundColor Green
 
 # ---- 0. 单元测试 ----
 if (-not $SkipTests) {
-    $filter = 'FullyQualifiedName!~LiveGmail&FullyQualifiedName!~LiveGraph&FullyQualifiedName!~LiveImap&FullyQualifiedName!~LiveRefresh'
-    Invoke-Dotnet @('test', $TestProj, '-c', $Configuration, "-p:Platform=$Platform", '--filter', $filter, '--nologo', '-v:q')
+    Invoke-Dotnet @('test', $TestProj, '-c', $Configuration, "-p:Platform=$Platform", '--filter', $UnitTestFilter, '--nologo', '-v:q')
 }
 
 # ---- 1. 清理工作目录 ----
