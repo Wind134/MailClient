@@ -1,4 +1,5 @@
 using MailClient.Core;
+using MailClient.ViewModels;
 using MailClient.Core.Links;
 using MailClient.Core.Retention;
 using MailClient.Storage.Services;
@@ -398,9 +399,9 @@ internal static class SettingsSections
             {
                 var snap = await service.GetSnapshotAsync();
                 var u = snap.Usage;
-                dbText.Text = $"数据库文件：{FormatBytes(u.DatabaseBytes)}（其中可回收的空闲空间 {FormatBytes(u.FreeBytes)}）";
-                bodyText.Text = $"邮件正文缓存：{FormatBytes(u.BodyCacheBytes)}，共 {u.BodyCount} 封（其中可清理 {u.EvictableCount} 封，{FormatBytes(u.EvictableBytes)}）";
-                logText.Text = $"日志文件：{FormatBytes(snap.LogBytes)}（每个日志约 1 MB 封顶，各保留 2 份旧文件）";
+                dbText.Text = $"数据库文件：{SettingsFormat.Bytes(u.DatabaseBytes)}（其中可回收的空闲空间 {SettingsFormat.Bytes(u.FreeBytes)}）";
+                bodyText.Text = $"邮件正文缓存：{SettingsFormat.Bytes(u.BodyCacheBytes)}，共 {u.BodyCount} 封（其中可清理 {u.EvictableCount} 封，{SettingsFormat.Bytes(u.EvictableBytes)}）";
+                logText.Text = $"日志文件：{SettingsFormat.Bytes(snap.LogBytes)}（每个日志约 1 MB 封顶，各保留 2 份旧文件）";
             }
             catch (Exception ex)
             {
@@ -422,7 +423,7 @@ internal static class SettingsSections
             {
                 var r = await service.RunAsync();
                 status.Text = r.Eviction.Evicted > 0
-                    ? $"已按新上限清理 {r.Eviction.Evicted} 封邮件的正文缓存，释放约 {FormatBytes(r.Eviction.FreedBytes)}。"
+                    ? $"已按新上限清理 {r.Eviction.Evicted} 封邮件的正文缓存，释放约 {SettingsFormat.Bytes(r.Eviction.FreedBytes)}。"
                     : "上限已保存；当前缓存没有超出，无需清理。";
             }
             catch (Exception ex)
@@ -439,7 +440,7 @@ internal static class SettingsSections
         var current = settings.GetStorageOptions();
         var ageCombo = BuildLimitCombo(
             "StorageMaxAgeCombo", "正文缓存保留时间（距上次打开 / 下载）",
-            new[] { 30, 90, 180, 365, 0 }, 90, current.MaxAgeDays, FormatDays,
+            new[] { 30, 90, 180, 365, 0 }, 90, current.MaxAgeDays, SettingsFormat.Days,
             value =>
             {
                 settings.Update(s => s.BodyCacheMaxAgeDays = value);
@@ -447,7 +448,7 @@ internal static class SettingsSections
             });
         var sizeCombo = BuildLimitCombo(
             "StorageMaxSizeCombo", "正文缓存大小上限",
-            new[] { 100, 200, 500, 1024, 2048, 0 }, 200, current.MaxCacheMb, FormatMb,
+            new[] { 100, 200, 500, 1024, 2048, 0 }, 200, current.MaxCacheMb, SettingsFormat.Megabytes,
             value =>
             {
                 settings.Update(s => s.BodyCacheMaxMb = value);
@@ -474,7 +475,7 @@ internal static class SettingsSections
             try
             {
                 var r = await service.ClearCacheAsync();
-                status.Text = $"已清理 {r.Eviction.Evicted} 封邮件的正文缓存，释放约 {FormatBytes(r.Eviction.FreedBytes)}；数据库回收 {FormatBytes(r.Database.ReclaimedBytes)}。";
+                status.Text = $"已清理 {r.Eviction.Evicted} 封邮件的正文缓存，释放约 {SettingsFormat.Bytes(r.Eviction.FreedBytes)}；数据库回收 {SettingsFormat.Bytes(r.Database.ReclaimedBytes)}。";
             }
             catch (Exception ex)
             {
@@ -497,7 +498,7 @@ internal static class SettingsSections
                 var r = await service.CompactDatabaseAsync();
                 status.Text = r.Skipped is { Length: > 0 } skipped
                     ? "未压缩：" + skipped
-                    : $"已压缩数据库，回收 {FormatBytes(r.ReclaimedBytes)}。";
+                    : $"已压缩数据库，回收 {SettingsFormat.Bytes(r.ReclaimedBytes)}。";
             }
             catch (Exception ex)
             {
@@ -564,29 +565,4 @@ internal static class SettingsSections
         return combo;
     }
 
-    internal static string FormatDays(int days) => days <= 0 ? "不限制" : days % 365 == 0 && days >= 365 ? $"{days / 365} 年" : $"{days} 天";
-
-    internal static string FormatMb(int mb) => mb <= 0 ? "不限制" : mb >= 1024 && mb % 1024 == 0 ? $"{mb / 1024} GB" : $"{mb} MB";
-
-    internal static string FormatBytes(long bytes)
-    {
-        if (bytes < 0)
-        {
-            bytes = 0;
-        }
-
-        if (bytes < 1024)
-        {
-            return $"{bytes} B";
-        }
-
-        double v = bytes / 1024.0;
-        if (v < 1024)
-        {
-            return $"{v:0.#} KB";
-        }
-
-        v /= 1024;
-        return v < 1024 ? $"{v:0.#} MB" : $"{v / 1024:0.##} GB";
-    }
 }

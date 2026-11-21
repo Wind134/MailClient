@@ -28,20 +28,9 @@ public static class Converters
     }
 
     public static Color? ParseColor(string? hex)
-    {
-        if (string.IsNullOrWhiteSpace(hex))
-        {
-            return null;
-        }
-
-        var text = hex.Trim().TrimStart('#');
-        if (text.Length != 6 || !int.TryParse(text, System.Globalization.NumberStyles.HexNumber, null, out var rgb))
-        {
-            return null;
-        }
-
-        return Color.FromArgb(255, (byte)(rgb >> 16), (byte)(rgb >> 8), (byte)rgb);
-    }
+        => MailClient.Core.HexColor.TryParse(hex, out var r, out var g, out var b)
+            ? Color.FromArgb(255, r, g, b)
+            : null;
 }
 
 public sealed class HexBrushConverter : Microsoft.UI.Xaml.Data.IValueConverter

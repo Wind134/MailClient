@@ -13,7 +13,7 @@ public static class StartupLaunch
     /// HKCU Run 与任务管理器里的值名。必须和安装程序
     /// <c>SetupConstants.StartupRunValueName</c> 一致，卸载时才能清掉。
     /// </summary>
-    public const string RunValueName = "MailClient";
+    public const string RunValueName = AppIdentifiers.StartupRunValueName;
 
     /// <summary>任务管理器把启动项标成禁用时，StartupApproved 二进制值的首字节。</summary>
     public const byte ApprovedDisabled = 3;
