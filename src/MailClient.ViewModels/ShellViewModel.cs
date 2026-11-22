@@ -59,6 +59,8 @@ public sealed partial class ShellViewModel : ObservableObject
         if (settings is not null)
         {
             Tree.ColorResolver = settings.GetAccountColor;
+            Tree.AccountOrderResolver = settings.GetAccountOrder;
+            Tree.AccountOrderSaver = settings.SetAccountOrder;
         }
 
         if (relogin is not null)
@@ -435,8 +437,22 @@ public sealed partial class ShellViewModel : ObservableObject
     {
         if (_syncService is not null && HasRealAccounts)
         {
-            await SyncAsync(null, userInitiated: true);
-            return;
+            var selectedAccountId = Tree.SelectedNode?.AccountId;
+            if (selectedAccountId is { } id)
+            {
+                // 选中了某个具体账号的文件夹：只同步该账号；演示账号只刷新本地
+                if (!DemoAccounts.IsDemoAccount(id))
+                {
+                    await SyncAsync(id, userInitiated: true);
+                    return;
+                }
+            }
+            else
+            {
+                // 选中了收藏夹（所有收件箱 / 未读 / 已标记等跨账号视图）：同步全部真实账号
+                await SyncAsync(null, userInitiated: true);
+                return;
+            }
         }
 
         await Tree.RefreshCountsAsync();
