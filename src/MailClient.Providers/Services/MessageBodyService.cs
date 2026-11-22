@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using MailClient.Core;
 using MailClient.Core.Auth;
 using MailClient.Core.Services;
@@ -13,6 +14,7 @@ public sealed class MessageBodyService : IMessageBodyLoader
     private readonly MailDatabase _db;
     private readonly AccountProviderFactory _providers;
     private readonly ReloginTracker? _relogin;
+    private readonly ConcurrentDictionary<string, byte> _garbledRefetched = new(StringComparer.Ordinal);
 
     /// <param name="relogin">拉正文 / 附件时遇到登录失效，就标记账号需要重新登录。</param>
     public MessageBodyService(MailDatabase database, AccountProviderFactory providers, ReloginTracker? relogin = null)
@@ -55,8 +57,22 @@ public sealed class MessageBodyService : IMessageBodyLoader
 
         if (message.BodyFetched)
         {
-            // 旧缓存可能仍留着 cid: 内嵌图引用：再拉一次以改写成 data URI
-            if (!CidHtmlRewriter.ContainsUnresolvedCid(message.BodyHtml))
+            // 旧缓存可能仍留着 cid: 内嵌图引用，或升级前被误按 UTF-8 解码成乱码的正文/附件名：自动重拉一次覆盖旧缓存
+            var needsCid = CidHtmlRewriter.ContainsUnresolvedCid(message.BodyHtml);
+            var needsGarbled = false;
+            if (!needsCid)
+            {
+                var garbled = GarbledText.LooksGarbled(message.BodyText, message.BodyHtml);
+                if (!garbled && message.HasAttachments)
+                {
+                    var cachedAtts = await _db.ListAttachmentsAsync(messageId, cancellationToken).ConfigureAwait(false);
+                    garbled = GarbledText.HasGarbledFileName(cachedAtts.Select(a => a.FileName));
+                }
+
+                needsGarbled = garbled && _garbledRefetched.TryAdd(messageId, 0);
+            }
+
+            if (!needsCid && !needsGarbled)
             {
                 return;
             }

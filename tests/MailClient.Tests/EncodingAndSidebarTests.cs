@@ -112,6 +112,17 @@ public class MimeEncodingTests
         Assert.True(MimeMessageMapper.TryWriteAttachment(message, listed[0].FileName, output));
         Assert.Equal(payload, output.ToArray());
     }
+
+    [Fact]
+    public void GarbledText_Detects_Cached_Replacement_Chars_And_Latin1_FileNames()
+    {
+        Assert.True(GarbledText.LooksGarbled("IIûã", null));
+        Assert.True(GarbledText.LooksGarbled(null, "<p>乱码</p>"));
+        Assert.False(GarbledText.LooksGarbled("正常中文正文", "<p>正常 HTML</p>"));
+        Assert.True(GarbledText.LooksGarbledFileName("Ö§¸¶±¦½»Ò×Ã÷Ï¸(20260101-20261122).zip"));
+        Assert.False(GarbledText.LooksGarbledFileName("résumé.pdf"));
+        Assert.False(GarbledText.LooksGarbledFileName("支付宝交易明细.zip"));
+    }
 }
 
 public class RefreshScopeAndAccountOrderTests
