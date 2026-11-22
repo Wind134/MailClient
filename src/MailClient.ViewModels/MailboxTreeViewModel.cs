@@ -29,6 +29,12 @@ public sealed partial class MailboxTreeViewModel : ObservableObject
     /// <summary>按账号 Id 判断是否登录已失效（由 Shell 注入）。</summary>
     public Func<Guid, bool>? ReloginResolver { get; set; }
 
+    /// <summary>读取用户自定义的账号排序（由 Shell 注入，来自应用设置）。</summary>
+    public Func<IReadOnlyList<Guid>>? AccountOrderResolver { get; set; }
+
+    /// <summary>持久化用户拖动后的账号顺序（由 Shell 注入）。</summary>
+    public Action<IReadOnlyList<Guid>>? AccountOrderSaver { get; set; }
+
     /// <summary>树结构重建完成（App 据此重新生成 NavigationView 菜单）。</summary>
     public event EventHandler? Rebuilt;
 
@@ -53,7 +59,7 @@ public sealed partial class MailboxTreeViewModel : ObservableObject
             Favorites.Add(NewOutboxNode(outboxCount));
         }
 
-        var enabled = accounts.Where(a => a.IsEnabled).ToList();
+        var enabled = OrderAccounts(accounts.Where(a => a.IsEnabled).ToList());
         var colors = AccountPalette.Assign(enabled.Select(a => (a.Id, ColorResolver?.Invoke(a.Id))));
         foreach (var account in enabled)
         {
@@ -105,6 +111,106 @@ public sealed partial class MailboxTreeViewModel : ObservableObject
         {
             unread.ShowBadge = unread.UnreadCount != all.UnreadCount;
         }
+    }
+
+    /// <summary>
+    /// 拖动重排左侧栏账号顺序，并持久化到设置中。
+    /// </summary>
+    public bool MoveAccount(Guid draggedAccountId, Guid targetAccountId, bool insertAfter = false)
+    {
+        if (draggedAccountId == targetAccountId)
+        {
+            return false;
+        }
+
+        var oldIndex = IndexOfAccount(draggedAccountId);
+        var targetIndex = IndexOfAccount(targetAccountId);
+        if (oldIndex < 0 || targetIndex < 0)
+        {
+            return false;
+        }
+
+        var newIndex = insertAfter ? targetIndex + 1 : targetIndex;
+        if (oldIndex < newIndex)
+        {
+            newIndex--;
+        }
+
+        newIndex = Math.Clamp(newIndex, 0, Accounts.Count - 1);
+        if (newIndex == oldIndex)
+        {
+            return false;
+        }
+
+        Accounts.Move(oldIndex, newIndex);
+        PersistAccountOrder();
+        Rebuilt?.Invoke(this, EventArgs.Empty);
+        return true;
+    }
+
+    /// <summary>按偏移量上移 / 下移账号（供右键菜单或键盘操作使用）。</summary>
+    public bool MoveAccountByOffset(Guid accountId, int offset)
+    {
+        var oldIndex = IndexOfAccount(accountId);
+        if (oldIndex < 0)
+        {
+            return false;
+        }
+
+        var newIndex = Math.Clamp(oldIndex + offset, 0, Accounts.Count - 1);
+        if (newIndex == oldIndex)
+        {
+            return false;
+        }
+
+        Accounts.Move(oldIndex, newIndex);
+        PersistAccountOrder();
+        Rebuilt?.Invoke(this, EventArgs.Empty);
+        return true;
+    }
+
+    private int IndexOfAccount(Guid accountId)
+    {
+        for (var i = 0; i < Accounts.Count; i++)
+        {
+            if (Accounts[i].AccountId == accountId)
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    private void PersistAccountOrder()
+    {
+        var ids = Accounts
+            .Where(a => a.AccountId.HasValue)
+            .Select(a => a.AccountId!.Value)
+            .ToList();
+        AccountOrderSaver?.Invoke(ids);
+    }
+
+    private List<AccountEntity> OrderAccounts(List<AccountEntity> enabled)
+    {
+        var saved = AccountOrderResolver?.Invoke();
+        if (saved is null || saved.Count == 0)
+        {
+            return enabled;
+        }
+
+        var rank = new Dictionary<Guid, int>(saved.Count);
+        for (var i = 0; i < saved.Count; i++)
+        {
+            rank.TryAdd(saved[i], i);
+        }
+
+        return enabled
+            .Select((account, index) => (account, order: rank.TryGetValue(account.Id, out var r) ? r : int.MaxValue, index))
+            .OrderBy(x => x.order)
+            .ThenBy(x => x.index)
+            .Select(x => x.account)
+            .ToList();
     }
 
     /// <summary>

@@ -13,6 +13,8 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media;
+using Windows.ApplicationModel.DataTransfer;
 using Windows.Graphics;
 using Windows.System;
 
@@ -32,6 +34,7 @@ public sealed partial class MainWindow : Window
     private int _renderVersion;
     private bool _forceClose;
     private bool _closingWired;
+    private Guid? _draggingAccountId;
 
     public MainWindow(ShellViewModel viewModel)
     {
@@ -340,6 +343,7 @@ public sealed partial class MainWindow : Window
         {
             item.ContextFlyout = BuildAccountFlyout(node);
             ApplyReloginIndicator(item, node);
+            WireAccountDragDrop(item, node);
         }
 
         node.PropertyChanged += (_, e) =>
@@ -417,6 +421,28 @@ public sealed partial class MainWindow : Window
         var relogin = new MenuFlyoutItem { Text = ReloginTexts.MenuRelogin, Icon = new FontIcon { Glyph = "\uE8D7" } };
         relogin.Click += async (_, _) => await ReloginFromMenuAsync(accountId.Value);
 
+        var moveUp = new MenuFlyoutItem { Text = "上移", Icon = new FontIcon { Glyph = "\uE74A" } };
+        moveUp.Click += (_, _) => ViewModel.Tree.MoveAccountByOffset(accountId.Value, -1);
+        var moveDown = new MenuFlyoutItem { Text = "下移", Icon = new FontIcon { Glyph = "\uE74B" } };
+        moveDown.Click += (_, _) => ViewModel.Tree.MoveAccountByOffset(accountId.Value, 1);
+
+        flyout.Opening += (_, _) =>
+        {
+            var accounts = ViewModel.Tree.Accounts;
+            var idx = -1;
+            for (var i = 0; i < accounts.Count; i++)
+            {
+                if (accounts[i].AccountId == accountId)
+                {
+                    idx = i;
+                    break;
+                }
+            }
+
+            moveUp.IsEnabled = idx > 0;
+            moveDown.IsEnabled = idx >= 0 && idx < accounts.Count - 1;
+        };
+
         flyout.Items.Add(rename);
         if (!node.IsDemo)
         {
@@ -427,8 +453,83 @@ public sealed partial class MainWindow : Window
             }
         }
 
+        if (ViewModel.Tree.Accounts.Count > 1)
+        {
+            flyout.Items.Add(new MenuFlyoutSeparator());
+            flyout.Items.Add(moveUp);
+            flyout.Items.Add(moveDown);
+            flyout.Items.Add(new MenuFlyoutSeparator());
+        }
+
         flyout.Items.Add(remove);
         return flyout;
+    }
+
+    /// <summary>支持左栏拖动邮箱账号卡片自定义排序，并显示上/下插入提示线。</summary>
+    private void WireAccountDragDrop(NavigationViewItem item, MailboxNodeViewModel node)
+    {
+        if (node.AccountId is not { } nodeAccountId)
+        {
+            return;
+        }
+
+        item.CanDrag = true;
+        item.AllowDrop = true;
+
+        item.DragStarting += (_, args) =>
+        {
+            _draggingAccountId = nodeAccountId;
+            args.Data.RequestedOperation = DataPackageOperation.Move;
+            args.Data.SetText(nodeAccountId.ToString("D"));
+        };
+
+        item.DragOver += (_, args) =>
+        {
+            if (_draggingAccountId is not { } dragged || dragged == nodeAccountId)
+            {
+                args.AcceptedOperation = DataPackageOperation.None;
+                return;
+            }
+
+            args.AcceptedOperation = DataPackageOperation.Move;
+            args.DragUIOverride.Caption = "移动邮箱顺序";
+            args.DragUIOverride.IsGlyphVisible = false;
+
+            var pos = args.GetPosition(item);
+            var insertAfter = item.ActualHeight > 0 && pos.Y > item.ActualHeight / 2.0;
+            item.BorderBrush = Application.Current.Resources.TryGetValue("AccentFillColorDefaultBrush", out var brush) && brush is Brush accent
+                ? accent
+                : new SolidColorBrush(Microsoft.UI.Colors.DodgerBlue);
+            item.BorderThickness = insertAfter ? new Thickness(0, 0, 0, 2) : new Thickness(0, 2, 0, 0);
+        };
+
+        item.DragLeave += (_, _) => ClearAccountDropIndicator(item);
+
+        item.Drop += (_, args) =>
+        {
+            ClearAccountDropIndicator(item);
+            if (_draggingAccountId is not { } dragged || dragged == nodeAccountId)
+            {
+                return;
+            }
+
+            var pos = args.GetPosition(item);
+            var insertAfter = item.ActualHeight > 0 && pos.Y > item.ActualHeight / 2.0;
+            _draggingAccountId = null;
+            ViewModel.Tree.MoveAccount(dragged, nodeAccountId, insertAfter);
+        };
+
+        item.DropCompleted += (_, _) =>
+        {
+            ClearAccountDropIndicator(item);
+            _draggingAccountId = null;
+        };
+    }
+
+    private static void ClearAccountDropIndicator(NavigationViewItem item)
+    {
+        item.BorderThickness = new Thickness(0);
+        item.ClearValue(Control.BorderBrushProperty);
     }
 
     private static InfoBadge? BuildBadge(MailboxNodeViewModel node)

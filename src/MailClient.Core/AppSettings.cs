@@ -27,6 +27,9 @@ public sealed class AppSettings
     /// <summary>账号颜色（AccountId:D → #RRGGBB）。</summary>
     public Dictionary<string, string> AccountColors { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>左侧栏账号自定义排序（AccountId:D 列表，未列入的新账号排在后面）。</summary>
+    public List<string> AccountOrder { get; set; } = new();
+
     /// <summary>
     /// “发送成功后是否把副本 APPEND 到服务器的已发送文件夹”的按预设覆盖（键：Qq / NetEase / OtherImap；值 true / false）。
     /// 没有写的预设使用内置默认（QQ / 网易 / 其他 IMAP = true，Gmail / Outlook = false）。
@@ -177,6 +180,39 @@ public sealed class AppSettingsStore
         }
     }
 
+    public IReadOnlyList<Guid> GetAccountOrder()
+    {
+        lock (_lock)
+        {
+            var result = new List<Guid>();
+            foreach (var item in _current.AccountOrder)
+            {
+                if (Guid.TryParse(item, out var id) && !result.Contains(id))
+                {
+                    result.Add(id);
+                }
+            }
+
+            return result;
+        }
+    }
+
+    public void SetAccountOrder(IEnumerable<Guid> accountIds)
+    {
+        ArgumentNullException.ThrowIfNull(accountIds);
+        var normalized = new List<string>();
+        var seen = new HashSet<Guid>();
+        foreach (var id in accountIds)
+        {
+            if (seen.Add(id))
+            {
+                normalized.Add(id.ToString("D"));
+            }
+        }
+
+        Update(s => s.AccountOrder = normalized);
+    }
+
     public void SetAccountColor(Guid accountId, string? color)
         => Update(s =>
         {
@@ -221,6 +257,7 @@ public sealed class AppSettingsStore
             var loaded = JsonSerializer.Deserialize(File.ReadAllText(path), AppSettingsJsonContext.Default.AppSettings) ?? new AppSettings();
             loaded.AccountColors = new Dictionary<string, string>(
                 loaded.AccountColors ?? new Dictionary<string, string>(), StringComparer.OrdinalIgnoreCase);
+            loaded.AccountOrder ??= new List<string>();
             loaded.RecentSearches ??= new List<string>();
             return loaded;
         }
@@ -239,6 +276,7 @@ public sealed class AppSettingsStore
         DemoDataDismissed = s.DemoDataDismissed,
         FirstRunPromptDismissed = s.FirstRunPromptDismissed,
         AccountColors = new Dictionary<string, string>(s.AccountColors, StringComparer.OrdinalIgnoreCase),
+        AccountOrder = new List<string>(s.AccountOrder ?? new List<string>()),
         SentCopyOverrides = new Dictionary<string, bool>(s.SentCopyOverrides, StringComparer.OrdinalIgnoreCase),
         RecentSearches = new List<string>(s.RecentSearches ?? new List<string>()),
         SyncPollMinutes = s.SyncPollMinutes,

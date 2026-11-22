@@ -26,7 +26,7 @@ $appTestProps = @(
 $failed = 0
 
 Write-Host "== dotnet test $(Split-Path -Leaf $TestProj) ==" -ForegroundColor Cyan
-dotnet test $TestProj -c Release -p:Platform=x64 @coreArgs --filter $UnitTestFilter 2>&1 | Tee-Object -FilePath $log -Append
+dotnet test $TestProj -c Release @coreArgs --filter $UnitTestFilter 2>&1 | Tee-Object -FilePath $log -Append
 if ($LASTEXITCODE -ne 0) { $failed = 1 }
 
 Write-Host "== dotnet test $(Split-Path -Leaf $AppTestProj) ==" -ForegroundColor Cyan
