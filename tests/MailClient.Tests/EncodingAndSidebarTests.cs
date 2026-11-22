@@ -116,8 +116,8 @@ public class MimeEncodingTests
     [Fact]
     public void GarbledText_Detects_Cached_Replacement_Chars_And_Latin1_FileNames()
     {
-        Assert.True(GarbledText.LooksGarbled("IIûã", null));
-        Assert.True(GarbledText.LooksGarbled(null, "<p>乱码</p>"));
+        Assert.True(GarbledText.LooksGarbled("\uFFFDII\uFFFD\uFFFDû\uFFFDã", null));
+        Assert.True(GarbledText.LooksGarbled(null, "<p>\uFFFD\uFFFD乱码</p>"));
         Assert.False(GarbledText.LooksGarbled("正常中文正文", "<p>正常 HTML</p>"));
         Assert.True(GarbledText.LooksGarbledFileName("Ö§¸¶±¦½»Ò×Ã÷Ï¸(20260101-20261122).zip"));
         Assert.False(GarbledText.LooksGarbledFileName("résumé.pdf"));
