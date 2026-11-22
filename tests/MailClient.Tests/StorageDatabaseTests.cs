@@ -125,8 +125,8 @@ public sealed class StorageDatabaseTests : IAsyncDisposable
         await AddCachedAsync(db, path, seed, "m1", "正文一", daysAgo: 400);
         await CloseAsync(db);
 
-        // 还原成 V6：去掉 V7 的索引 / 列 / 版本号
-        Raw(path, "DROP INDEX ix_messages_body_cache; ALTER TABLE messages DROP COLUMN BodyAccessedAt; DELETE FROM schema_version WHERE version = 7;");
+        // 还原成 V6：去掉 V7 / V8 的索引 / 列 / 版本号
+        Raw(path, "DROP INDEX ix_messages_body_cache; ALTER TABLE messages DROP COLUMN BodyAccessedAt; ALTER TABLE messages DROP COLUMN BodyParserVersion; DELETE FROM schema_version WHERE version >= 7;");
         Assert.Equal(6, RawScalar(path, "SELECT MAX(version) FROM schema_version;"));
 
         var upgraded = await OpenAsync(path);
