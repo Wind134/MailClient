@@ -368,7 +368,7 @@ public sealed partial class MailDatabase
                         Subject = excluded.Subject,
                         FromAddress = excluded.FromAddress,
                         FromName = excluded.FromName,
-                        Preview = excluded.Preview,
+                        Preview = CASE WHEN excluded.BodyFetched = 1 OR messages.BodyFetched = 0 OR length(messages.Preview) = 0 THEN excluded.Preview ELSE messages.Preview END,
                         BodyText = CASE WHEN excluded.BodyFetched = 1 THEN excluded.BodyText ELSE messages.BodyText END,
                         BodyHtml = CASE WHEN excluded.BodyFetched = 1 THEN excluded.BodyHtml ELSE messages.BodyHtml END,
                         BodyFetched = CASE WHEN excluded.BodyFetched = 1 THEN 1 ELSE messages.BodyFetched END,

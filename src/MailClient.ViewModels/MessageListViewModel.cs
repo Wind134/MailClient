@@ -421,6 +421,7 @@ public sealed partial class MessageListViewModel : ObservableObject
                             Messages[target].IsUnread = !entity.IsRead;
                             Messages[target].IsFlagged = entity.IsFlagged;
                             Messages[target].ShowCategoryChip = showChips;
+                            Messages[target].UpdatePreview(entity.Preview);
                             continue;
                         }
 
@@ -596,5 +597,16 @@ public sealed partial class MessageListViewModel : ObservableObject
         {
             _ = RefreshCategoryCountsAsync();
         }
+    }
+
+    public void UpdatePreview(string messageId, string? preview)
+    {
+        if (string.IsNullOrEmpty(preview))
+        {
+            return;
+        }
+
+        var row = Messages.FirstOrDefault(m => m.Id == messageId);
+        row?.UpdatePreview(preview, IsSearching ? HighlightTerms.Body : null);
     }
 }

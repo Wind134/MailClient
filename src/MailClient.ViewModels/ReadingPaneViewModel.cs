@@ -188,6 +188,9 @@ public sealed partial class ReadingPaneViewModel : ObservableObject
         });
     }
 
+    /// <summary>正文拉取完成后通知列表原地更新该行的预览文本。</summary>
+    public event EventHandler<(string MessageId, string Preview)>? PreviewUpdated;
+
     public async Task LoadAsync(string? messageId)
     {
         var version = Interlocked.Increment(ref _loadVersion);
@@ -234,6 +237,7 @@ public sealed partial class ReadingPaneViewModel : ObservableObject
                 // 旧缓存里的 cid: 内嵌图：后台静默再拉并改写，不闪加载态
                 if (CidHtmlRewriter.ContainsUnresolvedCid(entity.BodyHtml) ||
                     GarbledText.LooksGarbled(entity.BodyText, entity.BodyHtml) ||
+                    GarbledText.LooksGarbled(entity.Preview, null) ||
                     GarbledText.HasGarbledFileName(attachments.Select(a => a.FileName)))
                 {
                     _ = EnsureBodyAsync(entity.Id, version);
@@ -324,6 +328,10 @@ public sealed partial class ReadingPaneViewModel : ObservableObject
 
                 _entity = latest;
                 ApplyBody(latest);
+                if (!string.IsNullOrEmpty(latest.Preview))
+                {
+                    PreviewUpdated?.Invoke(this, (latest.Id, latest.Preview));
+                }
                 Attachments.Clear();
                 foreach (var a in attachments.Where(x => !x.IsInline))
                 {
