@@ -116,7 +116,9 @@ public sealed record MessageEntity(
     MailCategory? Category,
     long SizeBytes,
     /// <summary>是否已向服务器取过完整正文并写入 BodyText/BodyHtml（空正文也算已取）。</summary>
-    bool BodyFetched = false);
+    bool BodyFetched = false,
+    /// <summary>写入正文缓存时的解析器版本号（低于 <see cref="BodyCacheHealth.CurrentParserVersion"/> 时按需重拉）。</summary>
+    int BodyParserVersion = BodyCacheHealth.CurrentParserVersion);
 
 public sealed record RecipientEntity(
     long Id,

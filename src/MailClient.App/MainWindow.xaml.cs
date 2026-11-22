@@ -35,6 +35,7 @@ public sealed partial class MainWindow : Window
     private bool _forceClose;
     private bool _closingWired;
     private Guid? _draggingAccountId;
+    private readonly Dictionary<Guid, bool> _accountExpanded = new();
 
     public MainWindow(ShellViewModel viewModel)
     {
@@ -302,6 +303,14 @@ public sealed partial class MainWindow : Window
 
     private void RebuildNav()
     {
+        foreach (var (node, navItem) in _navItems)
+        {
+            if (node.Kind == MailboxNodeKind.Account && node.AccountId is { } id)
+            {
+                _accountExpanded[id] = navItem.IsExpanded;
+            }
+        }
+
         _navItems.Clear();
         NavView.MenuItems.Clear();
 
@@ -316,7 +325,9 @@ public sealed partial class MainWindow : Window
             NavView.MenuItems.Add(new NavigationViewItemSeparator());
             var accountItem = CreateItem(account);
             accountItem.SelectsOnInvoked = false;
-            accountItem.IsExpanded = true;
+            accountItem.IsExpanded = account.AccountId is { } accId
+                ? _accountExpanded.GetValueOrDefault(accId, true)
+                : true;
             foreach (var folder in account.Children)
             {
                 accountItem.MenuItems.Add(CreateItem(folder));
@@ -465,7 +476,11 @@ public sealed partial class MainWindow : Window
         return flyout;
     }
 
-    /// <summary>支持左栏拖动邮箱账号卡片自定义排序，并显示上/下插入提示线。</summary>
+    /// <summary>
+    /// 支持左栏拖动邮箱账号卡片自定义排序，并显示上/下插入提示线。
+    /// WinUI 3 的 NavigationViewItemPresenter 会吞掉 PointerPressed 用于展开/收起，
+    /// 仅设 CanDrag=true 不会触发拖动；通过 handledEventsToo 监听拖动阈值后显式调 StartDragAsync。
+    /// </summary>
     private void WireAccountDragDrop(NavigationViewItem item, MailboxNodeViewModel node)
     {
         if (node.AccountId is not { } nodeAccountId)
@@ -475,6 +490,62 @@ public sealed partial class MainWindow : Window
 
         item.CanDrag = true;
         item.AllowDrop = true;
+
+        Windows.Foundation.Point? pressOrigin = null;
+        uint pressPointerId = 0;
+
+        item.AddHandler(UIElement.PointerPressedEvent, new PointerEventHandler((_, e) =>
+        {
+            var point = e.GetCurrentPoint(item);
+            if (point.Properties.IsLeftButtonPressed)
+            {
+                pressOrigin = point.Position;
+                pressPointerId = e.Pointer.PointerId;
+            }
+        }), handledEventsToo: true);
+
+        item.AddHandler(UIElement.PointerMovedEvent, new PointerEventHandler(async (_, e) =>
+        {
+            if (pressOrigin is not { } origin || e.Pointer.PointerId != pressPointerId)
+            {
+                return;
+            }
+
+            var point = e.GetCurrentPoint(item);
+            if (!point.Properties.IsLeftButtonPressed)
+            {
+                pressOrigin = null;
+                return;
+            }
+
+            if (Math.Abs(point.Position.X - origin.X) < 6 && Math.Abs(point.Position.Y - origin.Y) < 6)
+            {
+                return;
+            }
+
+            pressOrigin = null;
+            _draggingAccountId = nodeAccountId;
+            try
+            {
+                await item.StartDragAsync(point);
+            }
+            catch
+            {
+                _draggingAccountId = null;
+            }
+        }), handledEventsToo: true);
+
+        void ResetPress(object sender, PointerRoutedEventArgs e)
+        {
+            if (e.Pointer.PointerId == pressPointerId)
+            {
+                pressOrigin = null;
+            }
+        }
+
+        item.AddHandler(UIElement.PointerReleasedEvent, new PointerEventHandler(ResetPress), handledEventsToo: true);
+        item.AddHandler(UIElement.PointerCanceledEvent, new PointerEventHandler(ResetPress), handledEventsToo: true);
+        item.AddHandler(UIElement.PointerCaptureLostEvent, new PointerEventHandler(ResetPress), handledEventsToo: true);
 
         item.DragStarting += (_, args) =>
         {

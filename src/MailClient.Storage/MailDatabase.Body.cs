@@ -21,6 +21,7 @@ public sealed partial class MailDatabase
                     BodyText = $text,
                     BodyHtml = $html,
                     BodyFetched = 1,
+                    BodyParserVersion = $parserVersion,
                     BodyAccessedAt = $accessedAt,
                     Preview = CASE WHEN length($preview) > 0 THEN $preview ELSE Preview END,
                     HasAttachments = CASE WHEN $hasAtt = 1 THEN 1 ELSE HasAttachments END
@@ -31,6 +32,7 @@ public sealed partial class MailDatabase
                 command.Parameters.AddParam("$text", content.BodyText);
                 command.Parameters.AddParam("$html", content.BodyHtml);
                 command.Parameters.AddParam("$preview", preview);
+                command.Parameters.AddParam("$parserVersion", BodyCacheHealth.CurrentParserVersion);
                 command.Parameters.AddParam("$accessedAt", SqliteHelpers.Fmt(DateTimeOffset.UtcNow));
                 var hasNonInline = content.Attachments.Any(a => !a.IsInline);
                 command.Parameters.AddParam("$hasAtt", hasNonInline ? 1 : 0);

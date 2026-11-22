@@ -235,10 +235,7 @@ public sealed partial class ReadingPaneViewModel : ObservableObject
                 IsBodyLoading = false;
                 BodyLoadError = null;
                 // 旧缓存里的 cid: 内嵌图：后台静默再拉并改写，不闪加载态
-                if (CidHtmlRewriter.ContainsUnresolvedCid(entity.BodyHtml) ||
-                    GarbledText.LooksGarbled(entity.BodyText, entity.BodyHtml) ||
-                    GarbledText.LooksGarbled(entity.Preview, null) ||
-                    GarbledText.HasGarbledFileName(attachments.Select(a => a.FileName)))
+                if (BodyCacheHealth.NeedsRefetch(entity, attachments))
                 {
                     _ = EnsureBodyAsync(entity.Id, version);
                 }

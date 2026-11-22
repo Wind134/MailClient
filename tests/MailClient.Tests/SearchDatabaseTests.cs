@@ -20,7 +20,7 @@ public class SearchDatabaseTests
     {
         await using var tmp = new TempDb();
         await tmp.Database.InitializeAsync();
-        Assert.Equal(7, await tmp.Database.GetSchemaVersionAsync());
+        Assert.Equal(8, await tmp.Database.GetSchemaVersionAsync());
         Assert.False(string.IsNullOrEmpty(await tmp.Database.GetSqliteVersionAsync()));
         // 打包的 SQLite >= 3.34 时应启用 trigram
         var version = Version.Parse(await tmp.Database.GetSqliteVersionAsync());
