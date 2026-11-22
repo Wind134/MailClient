@@ -107,6 +107,7 @@ public sealed partial class ShellViewModel : ObservableObject
         };
         Reading.EditDraftRequested += (_, id) => { _ = OpenDraftAsync(id); };
         Reading.DeleteDraftRequested += (_, id) => { _ = DeleteLocalDraftAsync(id); };
+        Reading.PreviewUpdated += (_, e) => List.UpdatePreview(e.MessageId, e.Preview);
         database.DraftsChanged += (_, _) => Post(() => _ = OnDraftsChangedAsync());
         // 已读 / 星标在数据库写完后于线程池上触发。x:Bind 会在 PropertyChanged 里直接改 Visibility，
         // 后台线程改会抛 0x8001010E（RPC_E_WRONG_THREAD），async void 接不住，进程直接退出。

@@ -15,7 +15,7 @@ public sealed partial class MessageRowViewModel : ObservableObject
         Sender = string.IsNullOrWhiteSpace(entity.FromName) ? entity.FromAddress : entity.FromName!;
         FromAddress = entity.FromAddress;
         Subject = string.IsNullOrWhiteSpace(entity.Subject) ? UiStrings.NoSubject : entity.Subject;
-        Preview = entity.Preview;
+        _preview = entity.Preview;
         TimeText = TimeFormatter.FormatShort(ReceivedAt, now);
         HasAttachments = entity.HasAttachments;
         Category = entity.Category ?? MailCategory.Primary;
@@ -43,7 +43,10 @@ public sealed partial class MessageRowViewModel : ObservableObject
     public string Sender { get; private set; }
     public string FromAddress { get; }
     public string Subject { get; }
-    public string Preview { get; }
+
+    [ObservableProperty]
+    private string _preview;
+
     public string TimeText { get; }
     public bool HasAttachments { get; }
     public MailCategory Category { get; }
@@ -68,6 +71,18 @@ public sealed partial class MessageRowViewModel : ObservableObject
 
     /// <summary>预览里没有命中、但正文命中时：改用围绕命中处的正文片段作为预览。</summary>
     public void UseSnippet(string snippet, IEnumerable<string> terms) => PreviewHl = HighlightedText.Of(snippet, terms);
+
+    /// <summary>正文重新拉取并刷新预览后，原地同步列表行的预览文本。</summary>
+    public void UpdatePreview(string preview, IEnumerable<string>? highlightTerms = null)
+    {
+        if (string.Equals(Preview, preview, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        Preview = preview;
+        PreviewHl = HighlightedText.Of(preview, highlightTerms);
+    }
 
     [ObservableProperty]
     private bool _isUnread;

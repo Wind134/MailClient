@@ -62,7 +62,8 @@ public sealed class MessageBodyService : IMessageBodyLoader
             var needsGarbled = false;
             if (!needsCid)
             {
-                var garbled = GarbledText.LooksGarbled(message.BodyText, message.BodyHtml);
+                var garbled = GarbledText.LooksGarbled(message.BodyText, message.BodyHtml) ||
+                              GarbledText.LooksGarbled(message.Preview, null);
                 if (!garbled && message.HasAttachments)
                 {
                     var cachedAtts = await _db.ListAttachmentsAsync(messageId, cancellationToken).ConfigureAwait(false);
