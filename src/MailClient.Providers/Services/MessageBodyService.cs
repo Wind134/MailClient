@@ -14,7 +14,8 @@ public sealed class MessageBodyService : IMessageBodyLoader
     private readonly MailDatabase _db;
     private readonly AccountProviderFactory _providers;
     private readonly ReloginTracker? _relogin;
-    private readonly ConcurrentDictionary<string, byte> _garbledRefetched = new(StringComparer.Ordinal);
+    /// <summary>同一次运行内每封邮件最多触发一次缓存自愈重拉，避免远端本身损坏时反复请求。</summary>
+    private readonly ConcurrentDictionary<string, byte> _healedOnce = new(StringComparer.Ordinal);
 
     /// <param name="relogin">拉正文 / 附件时遇到登录失效，就标记账号需要重新登录。</param>
     public MessageBodyService(MailDatabase database, AccountProviderFactory providers, ReloginTracker? relogin = null)
@@ -57,23 +58,15 @@ public sealed class MessageBodyService : IMessageBodyLoader
 
         if (message.BodyFetched)
         {
-            // 旧缓存可能仍留着 cid: 内嵌图引用，或升级前被误按 UTF-8 解码成乱码的正文/附件名：自动重拉一次覆盖旧缓存
-            var needsCid = CidHtmlRewriter.ContainsUnresolvedCid(message.BodyHtml);
-            var needsGarbled = false;
-            if (!needsCid)
+            // 统一由 BodyCacheHealth 判定本地缓存是否存在异常（解析器版本过旧 / cid 残留 / 正文或预览或附件名乱码）
+            var issue = BodyCacheHealth.Inspect(message);
+            if (issue == BodyCacheIssue.None && message.HasAttachments)
             {
-                var garbled = GarbledText.LooksGarbled(message.BodyText, message.BodyHtml) ||
-                              GarbledText.LooksGarbled(message.Preview, null);
-                if (!garbled && message.HasAttachments)
-                {
-                    var cachedAtts = await _db.ListAttachmentsAsync(messageId, cancellationToken).ConfigureAwait(false);
-                    garbled = GarbledText.HasGarbledFileName(cachedAtts.Select(a => a.FileName));
-                }
-
-                needsGarbled = garbled && _garbledRefetched.TryAdd(messageId, 0);
+                var cachedAtts = await _db.ListAttachmentsAsync(messageId, cancellationToken).ConfigureAwait(false);
+                issue = BodyCacheHealth.Inspect(message, cachedAtts);
             }
 
-            if (!needsCid && !needsGarbled)
+            if (issue == BodyCacheIssue.None || !_healedOnce.TryAdd(messageId, 0))
             {
                 return;
             }

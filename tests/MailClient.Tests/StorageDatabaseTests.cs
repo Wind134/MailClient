@@ -111,7 +111,7 @@ public sealed class StorageDatabaseTests : IAsyncDisposable
     {
         var path = NewPath();
         var db = await OpenAsync(path);
-        Assert.Equal(7, await db.GetSchemaVersionAsync());
+        Assert.Equal(8, await db.GetSchemaVersionAsync());
         Assert.Equal(2, await db.GetAutoVacuumModeAsync());
         Assert.Equal(1, RawScalar(path, "SELECT COUNT(*) FROM pragma_table_info('messages') WHERE name = 'BodyAccessedAt';"));
     }
@@ -130,7 +130,7 @@ public sealed class StorageDatabaseTests : IAsyncDisposable
         Assert.Equal(6, RawScalar(path, "SELECT MAX(version) FROM schema_version;"));
 
         var upgraded = await OpenAsync(path);
-        Assert.Equal(7, await upgraded.GetSchemaVersionAsync());
+        Assert.Equal(8, await upgraded.GetSchemaVersionAsync());
         var msg = await upgraded.GetMessageAsync("m1");
         Assert.True(msg!.BodyFetched);
         Assert.Equal("正文一", msg.BodyText);

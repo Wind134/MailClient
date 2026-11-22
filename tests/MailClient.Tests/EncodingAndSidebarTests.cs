@@ -123,6 +123,64 @@ public class MimeEncodingTests
         Assert.False(GarbledText.LooksGarbledFileName("résumé.pdf"));
         Assert.False(GarbledText.LooksGarbledFileName("支付宝交易明细.zip"));
     }
+
+    [Fact]
+    public async Task BodyCacheHealth_Inspects_All_Issues_And_Persists_ParserVersion()
+    {
+        var now = new DateTimeOffset(2026, 11, 22, 12, 0, 0, TimeSpan.FromHours(8));
+        var accountId = Guid.NewGuid();
+        var folderId = $"{accountId:D}:INBOX";
+        MessageEntity BaseMsg(
+            string id = "m1",
+            bool fetched = true,
+            int parserVersion = BodyCacheHealth.CurrentParserVersion,
+            string preview = "正常预览",
+            string? bodyText = "正常正文",
+            string? bodyHtml = "<p>正常正文</p>")
+            => new(id, accountId, folderId, 1, null, null, "主题", "a@b.com", "发件人",
+                preview, bodyText, bodyHtml, now, now, true, false, false, false,
+                MailCategory.Primary, 100, BodyFetched: fetched, BodyParserVersion: parserVersion);
+
+        // 1. 未拉取正文 → None（走正常首次拉取）
+        Assert.Equal(BodyCacheIssue.None, BodyCacheHealth.Inspect(BaseMsg(fetched: false, parserVersion: 0)));
+
+        // 2. 健康缓存 → None
+        Assert.Equal(BodyCacheIssue.None, BodyCacheHealth.Inspect(BaseMsg()));
+
+        // 3. 解析器版本过旧 → OutdatedParserVersion
+        Assert.Equal(BodyCacheIssue.OutdatedParserVersion, BodyCacheHealth.Inspect(BaseMsg(parserVersion: 0)));
+
+        // 4. cid 残留 → UnresolvedCid
+        Assert.Equal(BodyCacheIssue.UnresolvedCid, BodyCacheHealth.Inspect(BaseMsg(bodyHtml: "<img src=\"cid:logo@a\">")));
+
+        // 5. 正文乱码 → GarbledBody
+        Assert.Equal(BodyCacheIssue.GarbledBody, BodyCacheHealth.Inspect(BaseMsg(bodyText: "\uFFFD\uFFFD乱码")));
+
+        // 6. 预览乱码 → GarbledPreview
+        Assert.Equal(BodyCacheIssue.GarbledPreview, BodyCacheHealth.Inspect(BaseMsg(preview: "\uFFFD\uFFFD乱码预览")));
+
+        // 7. 附件名乱码 → GarbledAttachmentName
+        var badAtt = new AttachmentEntity("a1", "m1", "Ö§¸¶±¦½»Ò×Ã÷Ï¸.zip", "application/zip", 100, null, IsInline: false, LocalPath: null);
+        Assert.Equal(BodyCacheIssue.GarbledAttachmentName, BodyCacheHealth.Inspect(BaseMsg(), [badAtt]));
+
+        // 8. SQLite V8 持久化 BodyParserVersion：旧版本写入后，SaveMessageBodyAsync 自动升级为 CurrentParserVersion
+        await using var tmp = new TempDb();
+        await tmp.Database.InitializeAsync();
+        await tmp.Database.UpsertAccountAsync(new AccountEntity(accountId, "A", "a@b.com", ProviderIds.Gmail, AuthKind.OAuth, now, now, null, true));
+        await tmp.Database.UpsertFolderAsync(new FolderEntity(folderId, accountId, "收件箱", SpecialFolder.Inbox, "INBOX", 0, 1, 0, null));
+        await tmp.Database.UpsertMessageAsync(BaseMsg(id: "m-old", fetched: true, parserVersion: 0));
+
+        var loadedOld = await tmp.Database.GetMessageAsync("m-old");
+        Assert.NotNull(loadedOld);
+        Assert.Equal(0, loadedOld!.BodyParserVersion);
+        Assert.Equal(BodyCacheIssue.OutdatedParserVersion, BodyCacheHealth.Inspect(loadedOld));
+
+        await tmp.Database.SaveMessageBodyAsync("m-old", new MessageBodyContent("新正文", "<p>新正文</p>", []));
+        var loadedNew = await tmp.Database.GetMessageAsync("m-old");
+        Assert.NotNull(loadedNew);
+        Assert.Equal(BodyCacheHealth.CurrentParserVersion, loadedNew!.BodyParserVersion);
+        Assert.Equal(BodyCacheIssue.None, BodyCacheHealth.Inspect(loadedNew));
+    }
 }
 
 public class RefreshScopeAndAccountOrderTests

@@ -355,11 +355,11 @@ public sealed partial class MailDatabase
                     INSERT INTO messages (
                         Id, AccountId, FolderId, RemoteUid, RfcMessageId, ThreadKey,
                         Subject, FromAddress, FromName, Preview, BodyText, BodyHtml,
-                        ReceivedAt, SentAt, IsRead, IsFlagged, IsDraft, HasAttachments, Category, SizeBytes, LocalState, BodyFetched)
+                        ReceivedAt, SentAt, IsRead, IsFlagged, IsDraft, HasAttachments, Category, SizeBytes, LocalState, BodyFetched, BodyParserVersion)
                     VALUES (
                         $id, $accountId, $folderId, $remoteUid, $rfc, $thread,
                         $subject, $fromAddress, $fromName, $preview, $bodyText, $bodyHtml,
-                        $receivedAt, $sentAt, $isRead, $isFlagged, $isDraft, $hasAttachments, $category, $size, 0, $bodyFetched)
+                        $receivedAt, $sentAt, $isRead, $isFlagged, $isDraft, $hasAttachments, $category, $size, 0, $bodyFetched, $bodyParserVersion)
                     ON CONFLICT(Id) DO UPDATE SET
                         FolderId = excluded.FolderId,
                         RemoteUid = excluded.RemoteUid,
@@ -372,6 +372,7 @@ public sealed partial class MailDatabase
                         BodyText = CASE WHEN excluded.BodyFetched = 1 THEN excluded.BodyText ELSE messages.BodyText END,
                         BodyHtml = CASE WHEN excluded.BodyFetched = 1 THEN excluded.BodyHtml ELSE messages.BodyHtml END,
                         BodyFetched = CASE WHEN excluded.BodyFetched = 1 THEN 1 ELSE messages.BodyFetched END,
+                        BodyParserVersion = CASE WHEN excluded.BodyFetched = 1 THEN excluded.BodyParserVersion ELSE messages.BodyParserVersion END,
                         ReceivedAt = excluded.ReceivedAt,
                         SentAt = excluded.SentAt,
                         IsRead = excluded.IsRead,

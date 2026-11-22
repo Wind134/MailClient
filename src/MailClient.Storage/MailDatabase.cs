@@ -167,6 +167,16 @@ public sealed partial class MailDatabase : IAsyncDisposable, IMailStore
             await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
             await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
         }
+
+        if (current < SchemaV8.Version)
+        {
+            await using var transaction = (SqliteTransaction)await connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+            await using var command = connection.CreateCommand();
+            command.Transaction = transaction;
+            command.CommandText = SchemaV8.Sql + $"\nINSERT OR IGNORE INTO schema_version (version) VALUES ({SchemaV8.Version});";
+            await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+            await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+        }
     }
 
     public Task<int> GetSchemaVersionAsync(CancellationToken cancellationToken = default)
@@ -314,11 +324,11 @@ public sealed partial class MailDatabase : IAsyncDisposable, IMailStore
                 INSERT INTO messages (
                     Id, AccountId, FolderId, RemoteUid, RfcMessageId, ThreadKey,
                     Subject, FromAddress, FromName, Preview, BodyText, BodyHtml,
-                    ReceivedAt, SentAt, IsRead, IsFlagged, IsDraft, HasAttachments, Category, SizeBytes, BodyFetched, BodyAccessedAt)
+                    ReceivedAt, SentAt, IsRead, IsFlagged, IsDraft, HasAttachments, Category, SizeBytes, BodyFetched, BodyParserVersion, BodyAccessedAt)
                 VALUES (
                     $id, $accountId, $folderId, $remoteUid, $rfc, $thread,
                     $subject, $fromAddress, $fromName, $preview, $bodyText, $bodyHtml,
-                    $receivedAt, $sentAt, $isRead, $isFlagged, $isDraft, $hasAttachments, $category, $size, $bodyFetched,
+                    $receivedAt, $sentAt, $isRead, $isFlagged, $isDraft, $hasAttachments, $category, $size, $bodyFetched, $bodyParserVersion,
                     CASE WHEN $bodyFetched = 1 THEN strftime('%Y-%m-%dT%H:%M:%SZ', 'now') ELSE NULL END)
                 ON CONFLICT(Id) DO UPDATE SET
                     FolderId = excluded.FolderId,
@@ -332,6 +342,7 @@ public sealed partial class MailDatabase : IAsyncDisposable, IMailStore
                     BodyText = CASE WHEN excluded.BodyFetched = 1 THEN excluded.BodyText ELSE messages.BodyText END,
                     BodyHtml = CASE WHEN excluded.BodyFetched = 1 THEN excluded.BodyHtml ELSE messages.BodyHtml END,
                     BodyFetched = CASE WHEN excluded.BodyFetched = 1 THEN 1 ELSE messages.BodyFetched END,
+                    BodyParserVersion = CASE WHEN excluded.BodyFetched = 1 THEN excluded.BodyParserVersion ELSE messages.BodyParserVersion END,
                     BodyAccessedAt = CASE WHEN excluded.BodyFetched = 1 THEN COALESCE(messages.BodyAccessedAt, excluded.BodyAccessedAt) ELSE messages.BodyAccessedAt END,
                     ReceivedAt = excluded.ReceivedAt,
                     SentAt = excluded.SentAt,
@@ -353,7 +364,7 @@ public sealed partial class MailDatabase : IAsyncDisposable, IMailStore
             command.CommandText = """
                 SELECT Id, AccountId, FolderId, RemoteUid, RfcMessageId, ThreadKey,
                        Subject, FromAddress, FromName, Preview, BodyText, BodyHtml,
-                       ReceivedAt, SentAt, IsRead, IsFlagged, IsDraft, HasAttachments, Category, SizeBytes, BodyFetched
+                       ReceivedAt, SentAt, IsRead, IsFlagged, IsDraft, HasAttachments, Category, SizeBytes, BodyFetched, BodyParserVersion
                 FROM messages
                 WHERE Id = $id;
                 """;
@@ -576,6 +587,7 @@ public sealed partial class MailDatabase : IAsyncDisposable, IMailStore
         command.Parameters.AddParam("$size", message.SizeBytes);
         var fetched = message.BodyFetched || message.BodyText is not null || message.BodyHtml is not null;
         command.Parameters.AddParam("$bodyFetched", fetched ? 1 : 0);
+        command.Parameters.AddParam("$bodyParserVersion", message.BodyParserVersion);
     }
 
     private static AccountEntity ReadAccount(SqliteDataReader reader)
@@ -628,7 +640,8 @@ public sealed partial class MailDatabase : IAsyncDisposable, IMailStore
             reader.GetInt32(17) != 0,
             SqliteHelpers.ParseEnumOrNull<MailCategory>(reader.IsDBNull(18) ? null : reader.GetString(18)),
             reader.GetInt64(19),
-            reader.FieldCount > 20 && !reader.IsDBNull(20) && reader.GetInt32(20) != 0);
+            reader.FieldCount > 20 && !reader.IsDBNull(20) && reader.GetInt32(20) != 0,
+            reader.FieldCount > 21 && !reader.IsDBNull(21) ? reader.GetInt32(21) : BodyCacheHealth.CurrentParserVersion);
 
     private static async Task<IReadOnlyList<MailMessageSummary>> ReadSummariesAsync(
         SqliteCommand command,

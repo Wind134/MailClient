@@ -75,7 +75,7 @@ public sealed class MessageBodyTests
     {
         await using var tmp = new TempDb();
         await tmp.Database.InitializeAsync();
-        Assert.Equal(7, await tmp.Database.GetSchemaVersionAsync());
+        Assert.Equal(8, await tmp.Database.GetSchemaVersionAsync());
 
         var accountId = Guid.NewGuid();
         var now = DateTimeOffset.UtcNow;

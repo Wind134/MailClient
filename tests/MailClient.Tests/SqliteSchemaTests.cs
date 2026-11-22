@@ -13,7 +13,7 @@ public sealed class SqliteSchemaTests
 
         await using var db = new MailDatabase(path);
         await db.InitializeAsync();
-        Assert.Equal(7, await db.GetSchemaVersionAsync());
+        Assert.Equal(8, await db.GetSchemaVersionAsync());
 
         var accountId = Guid.NewGuid();
         var now = DateTimeOffset.UtcNow;
