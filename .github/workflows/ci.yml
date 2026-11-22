@@ -23,7 +23,7 @@ jobs:
           dotnet-version: 8.0.x
 
       - name: Restore
-        run: dotnet restore MailClient.sln
+        run: dotnet restore MailClient.sln -p:Configuration=Release -p:Platform=x64
 
       - name: Build
         run: dotnet build MailClient.sln -c Release -p:Platform=x64 --no-restore --nologo
