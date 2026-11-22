@@ -303,6 +303,31 @@ public sealed class MicrosoftGraphProvider : IGraphDeltaSource, IAsyncDisposable
             }
         }
 
+        // 若 Graph JSON 返回的正文已含大量 U+FFFD（常见于 GBK 未声明编码邮件），回退拉取原始 MIME（$value）自行按 GB18030 解码
+        if (GarbledText.LooksGarbled(text, html))
+        {
+            try
+            {
+                await using var rawMime = await client.Me.Messages[graphMessageId].Content
+                    .GetAsync(cancellationToken: cancellationToken)
+                    .ConfigureAwait(false);
+                if (rawMime is not null)
+                {
+                    var mime = await MimeKit.MimeMessage.LoadAsync(rawMime, cancellationToken).ConfigureAwait(false);
+                    var extracted = MimeMessageMapper.ExtractContent(mime);
+                    if (!GarbledText.LooksGarbled(extracted.BodyText, extracted.BodyHtml))
+                    {
+                        html = extracted.BodyHtml;
+                        text = extracted.BodyText;
+                    }
+                }
+            }
+            catch
+            {
+                // 原始 MIME 拉取失败不阻断正文展示
+            }
+        }
+
         // HasAttachments 对「仅有内嵌图」的邮件经常是 false；HTML 含 cid: 时也要拉附件列表
         var needAttachments = message?.HasAttachments == true ||
                               (html is not null && CidHtmlRewriter.ContainsUnresolvedCid(html));
@@ -352,8 +377,9 @@ public sealed class MicrosoftGraphProvider : IGraphDeltaSource, IAsyncDisposable
                     }
                 }
 
+                var repairedName = MimeMessageMapper.RepairFileName(a.Name);
                 attachments.Add(new MessageAttachmentInfo(
-                    FileName: string.IsNullOrWhiteSpace(a.Name) ? "attachment" : a.Name!,
+                    FileName: string.IsNullOrWhiteSpace(repairedName) ? "attachment" : repairedName!,
                     ContentType: a.ContentType,
                     SizeBytes: bytes?.LongLength ?? a.Size ?? 0,
                     ContentId: contentId,
